@@ -1,0 +1,1417 @@
+
+\documentclass[11pt,a4paper]{article}
+
+% ============================================================
+% VANTA: Preliminary Research Manuscript
+% Version 0.1 — November 2026
+% ============================================================
+
+\usepackage[margin=0.95in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{enumitem}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\od}{\odot}
+
+% ============================================================
+% Title
+% ============================================================
+
+\title{
+    \textbf{VANTA: Value-Aggregated Non-Softmax Token Attention}\\
+    \large A Lightweight Feature-Interaction Architecture
+    for Tabular Regression
+}
+
+\author{
+    Parv Sharma\\
+    \textit{Preliminary Research Manuscript}
+}
+
+\date{November 2026}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+% Abstract
+% ============================================================
+
+\begin{abstract}
+
+We investigate whether learned feature-wise attention
+can provide an effective inductive bias for tabular
+regression without requiring a conventional Transformer
+architecture.
+
+We introduce VANTA (Value-Aggregated Non-Softmax
+Token Attention), a lightweight regression architecture
+that constructs asymmetric feature-interaction scores
+using learned affine query and key projections.
+
+Unlike conventional softmax attention, VANTA retains
+signed, unnormalized dot-product interactions and
+aggregates them using scalar feature values directly.
+The resulting representation is combined with the
+original feature space through a residual connection
+and mapped to a scalar prediction using a linear
+readout.
+
+We examine two parameterizations: VANTA-R, which
+uses a learned scalar residual gate, and VANTA-G,
+which uses feature-wise residual gates.
+
+We derive an associative formulation requiring
+$\mathcal{O}(Fd)$ arithmetic for feature aggregation,
+where $F$ is the number of input features and $d$
+is the latent interaction dimension.
+
+On the Diamonds regression dataset, VANTA-R
+achieves a test $R^2$ of 0.9740 using 1,450
+trainable parameters, while VANTA-G achieves
+0.9742 using 1,458 parameters.
+
+Ablation experiments suggest that learned query-key
+interactions contribute substantially to predictive
+performance. However, stronger nonlinear baselines,
+including a parameter-matched multilayer perceptron
+and gradient-boosted trees, achieve higher accuracy
+on the same benchmark.
+
+These preliminary results motivate further
+investigation into the generalization properties
+of low-rank asymmetric feature-interaction
+operators for tabular regression.
+
+\end{abstract}
+
+\noindent\textbf{Keywords:}
+Tabular regression, feature interactions,
+attention, low-rank factorization,
+residual learning, categorical embeddings.
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Tabular regression seeks to estimate a continuous
+target variable from a heterogeneous collection
+of numerical and categorical features.
+
+Linear regression provides a simple and interpretable
+baseline, but cannot directly represent nonlinear
+feature interactions without explicitly constructed
+interaction terms.
+
+Neural networks can approximate nonlinear functions,
+although their increased flexibility may require
+substantial data and careful regularization.
+
+Attention-based architectures provide an alternative
+mechanism for learning interactions between input
+representations. However, conventional Transformer
+architectures combine attention with additional
+components, including deep feed-forward networks,
+multiple attention layers, and normalization modules.
+
+For relatively small tabular problems, these
+components may introduce unnecessary complexity.
+
+This work investigates the following question:
+
+\begin{quote}
+Can a learned, asymmetric feature-interaction
+operator support effective regression without
+the additional architectural machinery of
+a Transformer?
+\end{quote}
+
+We study this question through VANTA, a family
+of lightweight regression architectures based on
+three principles:
+
+\begin{enumerate}[leftmargin=*]
+    \item Learn separate affine query and key
+    representations for individual input features.
+
+    \item Construct signed feature interactions
+    without softmax normalization, using the
+    original feature values for aggregation.
+
+    \item Preserve the original feature
+    representation through a residual connection,
+    followed by a linear regression readout.
+\end{enumerate}
+
+We investigate two residual parameterizations,
+VANTA-R and VANTA-G, and examine their
+mathematical properties and preliminary
+empirical performance.
+
+% ============================================================
+\section{Related Work}
+% ============================================================
+
+\subsection{Feature Interaction Models}
+
+Factorization Machines model pairwise interactions
+using low-dimensional latent factors
+\cite{rendle2010fm}.
+
+Attentional Factorization Machines extend this
+idea by learning interaction-specific weights
+through an attention mechanism
+\cite{xiao2017afm}.
+
+Deep and Cross Networks provide another approach
+to explicitly modeling bounded-degree feature
+interactions \cite{wang2017dcn}.
+
+VANTA shares the general motivation of learning
+structured interactions between tabular features.
+
+Its specific formulation uses separate affine
+query and key projections, direct scalar-value
+aggregation, and a residual regression readout.
+
+These connections are important when evaluating
+the novelty and contribution of the architecture.
+
+\subsection{Attention and Linear Complexity}
+
+The Transformer introduced scaled dot-product
+attention as a general mechanism for relating
+input representations \cite{vaswani2017attention}.
+
+Subsequent research demonstrated that certain
+attention formulations can exploit the
+associativity of matrix multiplication to avoid
+explicitly constructing a quadratic attention
+matrix \cite{katharopoulos2020linear}.
+
+VANTA uses an unnormalized identity-kernel
+dot-product interaction operator, permitting
+a similar associative computation.
+
+However, VANTA is not a sequence model and does
+not attempt to approximate softmax attention.
+
+\subsection{Tabular Deep Learning}
+
+Gorishniy et al.\ investigated neural-network
+architectures for tabular data, including
+Transformer-based models and residual networks
+\cite{gorishniy2021tabular}.
+
+Grinsztajn et al.\ demonstrated the continued
+competitiveness of tree-based models on typical
+tabular learning problems
+\cite{grinsztajn2022trees}.
+
+These findings motivate comparisons against
+both parameter-matched neural baselines and
+gradient-boosted decision trees.
+
+% ============================================================
+\section{Problem Formulation}
+% ============================================================
+
+Consider a supervised regression dataset
+
+\begin{equation}
+\mathcal{D}
+=
+\left\{
+(\mathbf{x}^{(n)},y^{(n)})
+\right\}_{n=1}^{N},
+\end{equation}
+
+where
+
+\begin{equation}
+\mathbf{x}^{(n)}\in\mathcal{X},
+\qquad
+y^{(n)}\in\R.
+\end{equation}
+
+Each observation contains $F$ numerical
+or categorical features.
+
+Our objective is to learn a function
+
+\begin{equation}
+f_\theta:\mathcal{X}\rightarrow\R
+\end{equation}
+
+that minimizes the empirical mean squared error
+
+\begin{equation}
+\mathcal{L}(\theta)
+=
+\frac{1}{N}
+\sum_{n=1}^{N}
+\left(
+f_\theta(\mathbf{x}^{(n)})
+-y^{(n)}
+\right)^2.
+\end{equation}
+
+The parameter vector $\theta$ includes
+feature embeddings, affine query-key parameters,
+residual scaling parameters, and the
+final regression readout.
+
+% ============================================================
+\section{VANTA Architecture}
+% ============================================================
+
+\subsection{Feature Tokenization}
+
+Let $d$ denote the latent interaction dimension.
+
+Each feature is represented by a token
+
+\begin{equation}
+\mathbf{t}_i\in\R^d.
+\end{equation}
+
+For a standardized numerical feature $x_i$,
+we define
+
+\begin{equation}
+\mathbf{t}_i=x_i\mathbf{1}_d,
+\qquad
+v_i=x_i,
+\end{equation}
+
+where $\mathbf{1}_d$ is the all-ones vector.
+
+For categorical feature $i$ with category
+index $c_i$, we use learned embeddings
+
+\begin{equation}
+\mathbf{t}_i=E_i[c_i]\in\R^d
+\end{equation}
+
+and a separate learned scalar value embedding
+
+\begin{equation}
+v_i=e_i[c_i]\in\R.
+\end{equation}
+
+Thus, each original input feature contributes
+exactly one token and one scalar value.
+
+Collecting the feature values gives
+
+\begin{equation}
+\mathbf{v}
+=
+\begin{bmatrix}
+v_1 & v_2 & \cdots & v_F
+\end{bmatrix}^{\top}
+\in\R^F.
+\end{equation}
+
+This construction preserves feature identity
+without requiring one-hot expansion into
+additional attention positions.
+
+\subsection{Affine Query and Key Projections}
+
+Each feature receives separate learned
+query and key parameters.
+
+Define
+
+\begin{align}
+\mathbf{q}_i
+&=
+\mathbf{t}_i\od\mathbf{w}_i^Q
++
+\mathbf{b}_i^Q,
+\\
+\mathbf{k}_i
+&=
+\mathbf{t}_i\od\mathbf{w}_i^K
++
+\mathbf{b}_i^K,
+\end{align}
+
+where
+
+\begin{equation}
+\mathbf{w}_i^Q,\mathbf{w}_i^K,
+\mathbf{b}_i^Q,\mathbf{b}_i^K
+\in\R^d.
+\end{equation}
+
+The symbol $\od$ denotes elementwise
+multiplication.
+
+For numerical features, these expressions
+reduce to conventional affine projections:
+
+\begin{align}
+\mathbf{q}_i
+&=
+x_i\mathbf{w}_i^Q+\mathbf{b}_i^Q,
+\\
+\mathbf{k}_i
+&=
+x_i\mathbf{w}_i^K+\mathbf{b}_i^K.
+\end{align}
+
+Collecting query and key vectors by rows gives
+
+\begin{equation}
+Q,K\in\R^{F\times d}.
+\end{equation}
+
+The distinct query and key parameterizations
+allow directional interactions between features.
+
+\subsection{Non-Softmax Interaction Operator}
+
+We define the feature-interaction matrix as
+
+\begin{equation}
+\boxed{
+A(\mathbf{x})
+=
+\frac{Q(\mathbf{x})K(\mathbf{x})^\top}
+{\sqrt d}.
+}
+\label{eq:attention}
+\end{equation}
+
+Its individual elements are
+
+\begin{equation}
+A_{ij}
+=
+\frac{\mathbf{q}_i^\top\mathbf{k}_j}
+{\sqrt d}.
+\end{equation}
+
+Unlike softmax attention, this formulation
+does not normalize rows into probability
+distributions.
+
+Consequently, interaction scores may be
+positive or negative, and their magnitudes
+are not constrained by a simplex normalization.
+
+In general,
+
+\begin{equation}
+A_{ij}\neq A_{ji}.
+\end{equation}
+
+The interaction matrix is therefore neither
+necessarily symmetric nor positive semidefinite.
+
+Moreover, since $A$ is constructed from
+a product of two $F\times d$ matrices,
+
+\begin{equation}
+\boxed{
+\operatorname{rank}(A)\leq d.
+}
+\label{eq:rank}
+\end{equation}
+
+The latent dimension $d$ therefore
+constrains the rank of the interaction
+operator.
+
+\subsection{Direct Value Aggregation}
+
+Rather than introducing a separate learned
+value-projection matrix, VANTA aggregates
+the scalar feature values directly:
+
+\begin{equation}
+\boxed{
+\mathbf{h}
+=
+A(\mathbf{x})\mathbf{v}.
+}
+\label{eq:aggregation}
+\end{equation}
+
+For feature $i$,
+
+\begin{equation}
+h_i
+=
+\sum_{j=1}^{F}A_{ij}v_j.
+\end{equation}
+
+Substituting the interaction scores,
+
+\begin{equation}
+h_i
+=
+\frac{1}{\sqrt d}
+\sum_{j=1}^{F}
+(\mathbf{q}_i^\top\mathbf{k}_j)v_j.
+\end{equation}
+
+Each resulting feature representation
+therefore depends on the learned
+relationships between the feature's
+query and all other feature keys.
+
+The output is
+
+\begin{equation}
+\mathbf{h}\in\R^F.
+\end{equation}
+
+% ============================================================
+\section{Residual Architectures}
+% ============================================================
+
+We investigate two methods of combining
+the interaction-transformed representation
+with the original feature values.
+
+\subsection{VANTA-R: Scalar-Gated Residual Attention}
+
+VANTA-R introduces a learned scalar
+
+\begin{equation}
+\gamma\in\R.
+\end{equation}
+
+The residual representation is
+
+\begin{equation}
+\boxed{
+\mathbf{z}_R
+=
+\mathbf{v}+\gamma\mathbf{h}.
+}
+\label{eq:residual_r}
+\end{equation}
+
+The regression prediction is
+
+\begin{equation}
+\boxed{
+\hat y_R
+=
+\mathbf{w}^{\top}\mathbf{z}_R+b.
+}
+\label{eq:prediction_r}
+\end{equation}
+
+Here,
+
+\begin{equation}
+\mathbf{w}\in\R^F,
+\qquad b\in\R.
+\end{equation}
+
+Expanding the expression,
+
+\begin{equation}
+\hat y_R
+=
+\mathbf{w}^{\top}\mathbf{v}
++
+\gamma\mathbf{w}^{\top}
+A(\mathbf{x})\mathbf{v}
++b.
+\end{equation}
+
+The architecture combines a direct
+feature pathway with a learned
+interaction pathway.
+
+When $\gamma=0$, the model reduces
+to a linear readout over the scalar
+feature-value representation.
+
+\subsection{VANTA-G: Feature-Wise Gated Residual Attention}
+
+VANTA-G replaces the scalar gate with
+a learned vector
+
+\begin{equation}
+\boldsymbol{\gamma}\in\R^F.
+\end{equation}
+
+The residual representation becomes
+
+\begin{equation}
+\boxed{
+\mathbf{z}_G
+=
+\mathbf{v}
++
+\boldsymbol{\gamma}\od\mathbf{h}.
+}
+\label{eq:residual_g}
+\end{equation}
+
+The final prediction is
+
+\begin{equation}
+\boxed{
+\hat y_G
+=
+\mathbf{w}^{\top}\mathbf{z}_G+b.
+}
+\label{eq:prediction_g}
+\end{equation}
+
+Component-wise,
+
+\begin{equation}
+z_{G,i}=v_i+\gamma_i h_i.
+\end{equation}
+
+This parameterization permits independently
+learned residual scaling for every feature.
+
+No additional feed-forward network or
+input-dependent gating network is used.
+
+% ============================================================
+\section{Theoretical Properties}
+% ============================================================
+
+\subsection{Associative Linear-Time Aggregation}
+
+A naive implementation constructs
+
+\begin{equation}
+A=\frac{QK^\top}{\sqrt d}
+\end{equation}
+
+and subsequently computes
+
+\begin{equation}
+\mathbf{h}=A\mathbf{v}.
+\end{equation}
+
+Explicitly constructing the interaction
+matrix requires $\mathcal{O}(F^2d)$
+arithmetic and $\mathcal{O}(F^2)$ storage.
+
+However, matrix multiplication is associative:
+
+\begin{equation}
+(QK^\top)\mathbf{v}
+=
+Q(K^\top\mathbf{v}).
+\end{equation}
+
+Therefore,
+
+\begin{equation}
+\boxed{
+\mathbf{h}
+=
+\frac{Q(K^\top\mathbf{v})}{\sqrt d}.
+}
+\label{eq:linear_attention}
+\end{equation}
+
+First compute
+
+\begin{equation}
+\mathbf{s}=K^\top\mathbf{v}
+\in\R^d.
+\end{equation}
+
+Then compute
+
+\begin{equation}
+\mathbf{h}
+=
+\frac{Q\mathbf{s}}{\sqrt d}.
+\end{equation}
+
+Both operations require
+$\mathcal{O}(Fd)$ arithmetic.
+
+Hence, for scalar feature values,
+
+\begin{equation}
+\boxed{
+T(F,d)=\mathcal{O}(Fd).
+}
+\end{equation}
+
+This result eliminates the need to
+materialize an $F\times F$ matrix
+during ordinary forward inference.
+
+The full matrix can still be constructed
+when explicit interaction inspection
+is required.
+
+\subsection{Polynomial Interaction Structure}
+
+Consider numerical features exclusively.
+
+Let
+
+\begin{align}
+\mathbf{q}_i
+&=
+x_i\mathbf{a}_i+\mathbf{b}_i,
+\\
+\mathbf{k}_j
+&=
+x_j\mathbf{c}_j+\mathbf{e}_j,
+\\
+v_j&=x_j.
+\end{align}
+
+The aggregated representation becomes
+
+\begin{equation}
+h_i
+=
+\frac{1}{\sqrt d}
+\sum_j
+x_j
+(x_i\mathbf{a}_i+\mathbf{b}_i)^\top
+(x_j\mathbf{c}_j+\mathbf{e}_j).
+\end{equation}
+
+Expanding gives
+
+\begin{align}
+h_i=\frac{1}{\sqrt d}\sum_j
+\Big[
+&
+x_ix_j^2\mathbf{a}_i^\top\mathbf{c}_j
+\nonumber\\
+&+
+x_ix_j\mathbf{a}_i^\top\mathbf{e}_j
+\nonumber\\
+&+
+x_j^2\mathbf{b}_i^\top\mathbf{c}_j
+\nonumber\\
+&+
+x_j\mathbf{b}_i^\top\mathbf{e}_j
+\Big].
+\end{align}
+
+Thus, with affine projections and
+identity-kernel attention, the interaction
+branch represents a structured polynomial
+of degree at most three in numerical inputs.
+
+This includes linear, quadratic, and
+cubic contributions.
+
+Categorical embeddings introduce
+category-dependent coefficients, while
+preserving the bounded polynomial degree
+in the numerical inputs.
+
+This limited-degree structure is a
+potential inductive bias, but also
+restricts the functions representable
+by the architecture.
+
+\subsection{Equivalence of Residual Parameterizations}
+
+We now establish a relationship between
+VANTA-R and VANTA-G.
+
+\begin{proposition}
+Assume that the affine query parameters
+are unconstrained.
+
+Then VANTA-R and VANTA-G define the same
+family of regression functions for
+fixed tokenization and latent dimension.
+\end{proposition}
+
+\begin{proof}
+
+For VANTA-G, the $i$-th transformed
+feature is
+
+\begin{equation}
+z_{G,i}
+=
+v_i+
+\frac{\gamma_i}{\sqrt d}
+\mathbf{q}_i^\top
+(K^\top\mathbf{v}).
+\end{equation}
+
+Define the reparameterized query
+
+\begin{equation}
+\tilde{\mathbf{q}}_i
+=
+\gamma_i\mathbf{q}_i.
+\end{equation}
+
+Since
+
+\begin{equation}
+\mathbf{q}_i
+=
+\mathbf{t}_i\od\mathbf{w}_i^Q
++\mathbf{b}_i^Q,
+\end{equation}
+
+we have
+
+\begin{equation}
+\tilde{\mathbf{q}}_i
+=
+\mathbf{t}_i\od
+(\gamma_i\mathbf{w}_i^Q)
++
+\gamma_i\mathbf{b}_i^Q.
+\end{equation}
+
+These are valid affine query parameters.
+
+Consequently,
+
+\begin{equation}
+z_{G,i}
+=
+v_i+
+\frac{1}{\sqrt d}
+\tilde{\mathbf{q}}_i^\top
+(K^\top\mathbf{v}),
+\end{equation}
+
+which is a VANTA-R representation
+with scalar gate equal to one.
+
+Conversely, VANTA-R is a special case
+of VANTA-G obtained by setting
+
+\begin{equation}
+\gamma_i=\gamma
+\qquad\forall i.
+\end{equation}
+
+Therefore the two parameterizations
+represent the same function family.
+\end{proof}
+
+\begin{remark}
+Representational equivalence does not
+imply identical optimization trajectories.
+
+The two models may exhibit different
+gradient dynamics, initialization effects,
+and interactions with weight decay.
+
+Their gates are also not uniquely
+identifiable as feature-importance measures.
+\end{remark}
+
+% ============================================================
+\section{Parameter Complexity}
+% ============================================================
+
+Let $C$ denote the set of categorical
+features, and let $m_i$ be the
+embedding-table cardinality of categorical
+feature $i$, including the reserved
+unknown-category index.
+
+The affine query and key projections require
+
+\begin{equation}
+4Fd
+\end{equation}
+
+parameters in total.
+
+Categorical token and scalar value
+embeddings require
+
+\begin{equation}
+(d+1)\sum_{i\in C}m_i
+\end{equation}
+
+parameters.
+
+The linear regression readout requires
+$F+1$ parameters.
+
+Therefore, the total parameter counts are
+
+\begin{align}
+P_R
+&=
+4Fd
++
+(d+1)\sum_{i\in C}m_i
++
+F+2,
+\\
+P_G
+&=
+4Fd
++
+(d+1)\sum_{i\in C}m_i
++
+2F+1.
+\end{align}
+
+Their difference is
+
+\begin{equation}
+\boxed{P_G-P_R=F-1.}
+\end{equation}
+
+For the Diamonds configuration,
+$F=9$, $d=24$, and
+$\sum_{i\in C}m_i=23$.
+
+Hence,
+
+\begin{align}
+P_R&=1450,\\
+P_G&=1458.
+\end{align}
+
+These counts include embedding-table
+entries reserved for unknown categories.
+
+% ============================================================
+\section{Experimental Setup}
+% ============================================================
+
+\subsection{Dataset}
+
+We evaluate the initial architectures
+on the Diamonds dataset available
+through Kaggle.
+
+The dataset contains 53,940 observations
+with nine predictive features and a
+continuous price target in USD.
+
+The numerical features are:
+
+\begin{quote}
+carat, depth, table, x, y, z.
+\end{quote}
+
+The categorical features are:
+
+\begin{quote}
+cut, color, clarity.
+\end{quote}
+
+Observations with nonpositive prices
+or invalid geometric dimensions are
+removed using a fixed preprocessing rule.
+
+This leaves 53,917 observations.
+
+\subsection{Preprocessing}
+
+Numerical features are imputed using
+training-set medians and standardized
+using training-set statistics.
+
+Categorical vocabularies are fitted
+using the training split only.
+
+A reserved index represents missing
+or previously unseen categories.
+
+The regression target is standardized
+using the training-set mean and
+standard deviation.
+
+Predictions are transformed back into
+USD before metric calculation.
+
+\subsection{Data Splitting}
+
+We use a random split with seed 42:
+
+\begin{itemize}
+    \item Training: 43,133 observations.
+    \item Validation: 5,392 observations.
+    \item Testing: 5,392 observations.
+\end{itemize}
+
+Validation error is used for checkpoint
+selection and early stopping.
+
+The reported results correspond to
+initial single-seed experiments.
+
+\subsection{Training Configuration}
+
+Both VANTA variants are trained using
+the following initial configuration:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Hyperparameter & Value\\
+\midrule
+Latent dimension & 24\\
+Optimizer & AdamW\\
+Learning rate & $10^{-3}$\\
+Weight decay & $10^{-4}$\\
+Batch size & 512\\
+Maximum epochs & 200\\
+Early-stopping patience & 25\\
+Gradient clipping norm & 1.0\\
+Initial residual gate & 0.1\\
+Loss function & MSE\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Training was performed using PyTorch
+on a CPU.
+
+% ============================================================
+\section{Experimental Results}
+% ============================================================
+
+\subsection{VANTA-R and VANTA-G}
+
+Table~\ref{tab:variants} reports the
+initial results.
+
+\begin{table}[ht]
+\centering
+\caption{Regression performance of VANTA variants.}
+\label{tab:variants}
+\begin{tabular}{lrrrr}
+\toprule
+Model & Parameters & Train $R^2$
+& Val. $R^2$ & Test $R^2$\\
+\midrule
+VANTA-R & 1450 & 0.97415 & 0.97608 & 0.97404\\
+VANTA-G & 1458 & 0.97431 & 0.97614 & 0.97421\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+VANTA-G achieves a slightly higher
+test $R^2$ than VANTA-R.
+
+However, the difference is small and
+cannot establish a reliable advantage
+without repeated experiments.
+
+The near-identical results are
+consistent with the representational
+equivalence established earlier.
+
+\subsection{Comparison with Established Baselines}
+
+We compare VANTA-R against classical
+linear regression, polynomial Ridge
+regression, a parameter-matched
+embedding MLP, XGBoost, and CatBoost.
+
+\begin{table}[ht]
+\centering
+\caption{Test performance on Diamonds.
+Lower RMSE and MAE are better.}
+\label{tab:baselines}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Model & $R^2$ & RMSE (USD) & MAE (USD)\\
+\midrule
+MLR & 0.92476 & 1081.91 & 714.82\\
+Polynomial Ridge & 0.97126 & 668.66 & 393.11\\
+VANTA-R & 0.97404 & 635.49 & 373.60\\
+VANTA-G & 0.97421 & 633.44 & 374.02\\
+Embedding MLP & 0.97925 & 568.22 & 312.94\\
+XGBoost & 0.97928 & 567.76 & 284.23\\
+CatBoost & \textbf{0.98227} & \textbf{525.17}
+& \textbf{272.27}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+VANTA-R reduces test RMSE by approximately
+41.3\% relative to ordinary multiple
+linear regression.
+
+It also outperforms the degree-two
+polynomial Ridge baseline on this split.
+
+However, the parameter-matched MLP,
+XGBoost, and CatBoost achieve stronger
+predictive performance.
+
+Therefore, the results support the
+viability of the proposed interaction
+operator but do not establish
+state-of-the-art regression performance.
+
+\subsection{Attention Ablation Studies}
+
+We conduct ablations of VANTA-R
+to investigate the contribution of
+learned interactions.
+
+The following variants are evaluated:
+
+\begin{enumerate}[leftmargin=*]
+\item Attention disabled and model retrained.
+\item Query and key parameters frozen at initialization.
+\item Residual gate fixed to $\gamma=1$.
+\item Original VANTA-R with learned residual gate.
+\end{enumerate}
+
+\begin{table}[ht]
+\centering
+\caption{VANTA-R ablation results on the test split.}
+\label{tab:ablations}
+\begin{tabular}{lrr}
+\toprule
+Configuration & Test $R^2$ & RMSE (USD)\\
+\midrule
+No attention & 0.92445 & 1084.09\\
+Frozen Q/K & 0.92927 & 1048.97\\
+Fixed $\gamma=1$ & 0.97394 & 636.76\\
+Learned $\gamma$ & \textbf{0.97404} & \textbf{635.49}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Disabling attention produces
+performance close to the ordinary
+linear regression baseline.
+
+Freezing query and key parameters
+provides a relatively small improvement
+over removing attention entirely.
+
+Training the query and key parameters
+produces a substantially larger gain.
+
+These findings support the conclusion
+that learned feature interactions are
+useful for the observed regression task.
+
+Fixing the scalar gate to one produces
+performance nearly identical to
+learning it.
+
+This agrees with the theoretical
+redundancy of the gate under
+unconstrained affine projections.
+
+\subsection{Post-Training Attention Removal}
+
+We additionally disable attention
+in the already trained VANTA-R model
+without retraining the readout.
+
+The test $R^2$ decreases from
+0.97404 to 0.64470.
+
+This indicates substantial
+co-adaptation between the trained
+interaction pathway and regression
+readout.
+
+However, post-training removal
+should not be confused with the
+performance of an independently
+retrained attention-free model.
+
+The latter achieves a test $R^2$
+of 0.92445 and is the more
+appropriate architectural ablation.
+
+% ============================================================
+\section{Discussion}
+% ============================================================
+
+The initial results suggest that
+a low-rank feature-interaction operator
+can provide useful nonlinear structure
+for tabular regression.
+
+Three observations are noteworthy.
+
+\paragraph{Learned interactions matter.}
+
+The substantial performance reduction
+observed when query-key learning is
+disabled suggests that the interaction
+branch contributes meaningful predictive
+information beyond the direct residual
+pathway.
+
+\paragraph{Gate complexity is not essential.}
+
+Scalar and feature-wise residual gating
+produce nearly identical accuracy.
+
+This observation is consistent with
+their mathematical equivalence under
+unconstrained affine query projections.
+
+\paragraph{Nonlinear baselines remain stronger.}
+
+The parameter-matched MLP and
+gradient-boosted models outperform VANTA
+on the current dataset.
+
+This suggests that the restricted
+interaction structure may be less
+flexible than the nonlinear functions
+learned by these alternatives.
+
+It remains unknown whether VANTA's
+structural constraints become advantageous
+in lower-data regimes or on datasets
+with different feature relationships.
+
+% ============================================================
+\section{Limitations}
+% ============================================================
+
+The present study has several limitations.
+
+\begin{enumerate}[leftmargin=*]
+
+\item \textbf{Limited dataset coverage.}
+The main benchmark currently consists
+of one real-world regression dataset.
+Cross-dataset evaluation is required.
+
+\item \textbf{Single-seed evidence.}
+The reported results do not yet
+establish variance across initialization
+seeds or data splits.
+
+\item \textbf{Restricted expressivity.}
+With identity-kernel attention,
+the numerical interaction branch
+is polynomial of degree at most three.
+
+\item \textbf{Unnormalized scores.}
+Raw dot-product attention permits
+signed interactions but can produce
+poorly controlled numerical scales.
+
+\item \textbf{Interpretability.}
+Attention coefficients and residual
+gate magnitudes cannot automatically
+be interpreted as causal or unique
+feature-importance estimates.
+
+\item \textbf{Benchmark reuse.}
+The Diamonds test split has been
+examined during iterative model
+development, limiting its suitability
+as a fully untouched final benchmark.
+
+\item \textbf{Novelty assessment.}
+Relationships to factorization machines,
+cross networks, and existing
+attention-based feature models
+require further theoretical comparison.
+
+\end{enumerate}
+
+% ============================================================
+\section{Future Work}
+% ============================================================
+
+We identify four immediate research directions.
+
+\subsection{Initialization Robustness}
+
+Evaluate VANTA-R, VANTA-G, and
+parameter-matched baselines over
+multiple random seeds.
+
+Report mean performance, variance,
+paired differences, and convergence
+characteristics.
+
+\subsection{Cross-Dataset Generalization}
+
+Evaluate on regression datasets
+with varying sample sizes,
+feature counts, categorical
+cardinalities, and interaction
+structures.
+
+Of particular interest is whether
+the low-rank interaction bias improves
+sample efficiency in small-data settings.
+
+\subsection{Normalization and Stability}
+
+Investigate input normalization,
+query-key scaling, interaction magnitude,
+and alternatives to unrestricted
+raw dot-product aggregation.
+
+\subsection{Alternative Interaction Kernels}
+
+Extend the interaction definition to
+
+\begin{equation}
+A_{ij}
+=
+g\left(
+\frac{\mathbf{q}_i^\top\mathbf{k}_j}
+{\sqrt d}
+\right),
+\end{equation}
+
+where $g$ may be nonlinear.
+
+Such extensions may increase expressive
+capacity, but arbitrary nonlinearities
+do not preserve the exact associative
+factorization of identity-kernel
+attention.
+
+Any resulting accuracy improvements
+must therefore be evaluated against
+additional computational cost.
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+We presented VANTA, a lightweight family
+of tabular regression architectures
+based on learned asymmetric feature
+interactions and direct value aggregation.
+
+The architecture removes several
+components of conventional Transformers,
+including softmax normalization,
+learned dense value projections,
+feed-forward attention blocks, and
+deep stacks of attention layers.
+
+We formalized two variants:
+VANTA-R with scalar-gated residual
+aggregation and VANTA-G with
+feature-wise gated aggregation.
+
+We showed that the identity-kernel
+interaction operator admits an
+$\mathcal{O}(Fd)$ associative
+implementation and that both residual
+parameterizations define the same
+function family under unconstrained
+affine query projections.
+
+Initial experiments demonstrate
+strong predictive performance relative
+to linear and quadratic regression,
+while also identifying stronger
+nonlinear baselines.
+
+The present findings motivate broader
+experimental and theoretical evaluation
+of learned low-rank feature-interaction
+operators as an inductive bias
+for tabular regression.
+
+% ============================================================
+% References
+% ============================================================
+
+\begin{thebibliography}{99}
+
+\bibitem{vaswani2017attention}
+A. Vaswani et al.
+\newblock Attention Is All You Need.
+\newblock \emph{NeurIPS}, 2017.
+
+\bibitem{rendle2010fm}
+S. Rendle.
+\newblock Factorization Machines.
+\newblock \emph{IEEE ICDM}, 2010.
+\newblock
+\url{https://doi.org/10.1109/ICDM.2010.127}
+
+\bibitem{xiao2017afm}
+J. Xiao et al.
+\newblock Attentional Factorization Machines:
+Learning the Weight of Feature Interactions
+via Attention Networks.
+\newblock \emph{IJCAI}, 2017.
+\newblock
+\url{https://doi.org/10.24963/ijcai.2017/435}
+
+\bibitem{wang2017dcn}
+R. Wang, B. Fu, G. Fu, and M. Wang.
+\newblock Deep \& Cross Network for
+Ad Click Predictions.
+\newblock \emph{ADKDD}, 2017.
+\newblock
+\url{https://arxiv.org/abs/1708.05123}
+
+\bibitem{katharopoulos2020linear}
+A. Katharopoulos, A. Vyas,
+N. Pappas, and F. Fleuret.
+\newblock Transformers are RNNs:
+Fast Autoregressive Transformers
+with Linear Attention.
+\newblock \emph{ICML}, 2020.
+\newblock
+\url{https://proceedings.mlr.press/v119/katharopoulos20a.html}
+
+\bibitem{gorishniy2021tabular}
+Y. Gorishniy, I. Rubachev,
+V. Khrulkov, and A. Babenko.
+\newblock Revisiting Deep Learning
+Models for Tabular Data.
+\newblock \emph{NeurIPS}, 2021.
+\newblock
+\url{https://arxiv.org/abs/2106.11959}
+
+\bibitem{grinsztajn2022trees}
+L. Grinsztajn, E. Oyallon,
+and G. Varoquaux.
+\newblock Why Do Tree-Based Models
+Still Outperform Deep Learning
+on Typical Tabular Data?
+\newblock \emph{NeurIPS}, 2022.
+\newblock
+\url{https://arxiv.org/abs/2207.08815}
+
+\end{thebibliography}
+
+\end{document}
+

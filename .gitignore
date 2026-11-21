@@ -1,0 +1,163 @@
+# ----------------------------------------------------------
+# Python
+# ----------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+*.egg-info/
+build/
+dist/
+
+
+# ----------------------------------------------------------
+# Virtual environments and credentials
+# ----------------------------------------------------------
+
+.venv/
+venv/
+env/
+ENV/
+
+.env
+.env.*
+!.env.example
+
+.kaggle/
+kaggle.json
+
+
+# ----------------------------------------------------------
+# IDEs and operating systems
+# ----------------------------------------------------------
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+.DS_Store
+Thumbs.db
+
+
+# ----------------------------------------------------------
+# Downloaded datasets / local dataset caches
+# ----------------------------------------------------------
+
+diamonds.csv
+housing.csv
+AmesHousing.csv
+concrete_data.csv
+AB_NYC_2019.csv
+
+/data/raw/
+/datasets/raw/
+
+.kagglehub/
+
+
+# ----------------------------------------------------------
+# Machine learning checkpoints and serialized models
+# ----------------------------------------------------------
+
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.h5
+*.hdf5
+
+*.pkl
+*.pickle
+*.joblib
+
+*.npy
+*.npz
+
+
+# ----------------------------------------------------------
+# Generated experiment results
+# ----------------------------------------------------------
+
+results/
+runs/
+outputs/
+checkpoints/
+lightning_logs/
+
+wandb/
+mlruns/
+
+events.out.tfevents.*
+
+# Standalone generated outputs in model directories
+loss_curve.png
+feature_gates.csv
+
+# Experiment metrics and histories outside results/
+test_predictions.csv
+metrics.csv
+summary.csv
+paired_comparisons.csv
+history.csv
+
+
+# ----------------------------------------------------------
+# Logs and temporary files
+# ----------------------------------------------------------
+
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.py.bak
+
+
+# ----------------------------------------------------------
+# LaTeX compilation artifacts
+# Keep .tex, .bib and final PDF documents.
+# ----------------------------------------------------------
+
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+
+
+# ----------------------------------------------------------
+# Jupyter
+# ----------------------------------------------------------
+
+.ipynb_checkpoints/
+
+
+# ----------------------------------------------------------
+# Local profiling and debugging
+# ----------------------------------------------------------
+
+*.prof
+*.pstats
+profile_output/
+
