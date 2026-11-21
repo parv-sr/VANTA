@@ -27,10 +27,10 @@ Let there be $F$ features, with query/key dimension $d$. Each feature contribute
 
 Separate affine projections produce
 
-$
+$$
 q_i=t_i\odot w_i^Q+b_i^Q,\qquad
 k_i=t_i\odot w_i^K+b_i^K.
-$
+$$
 
 Stacking query and key vectors gives $Q,K\in\mathbb R^{F\times d}$, and collecting scalar values gives $v\in\mathbb R^F$.
 
@@ -38,17 +38,17 @@ Stacking query and key vectors gives $Q,K\in\mathbb R^{F\times d}$, and collecti
 
 The original formulation uses an unnormalized dot-product interaction matrix:
 
-$
+$$
 A=\frac{QK^\top}{\sqrt d},\qquad
 h=Av,\qquad
 \boxed{\hat y=w^\top(v+\gamma h)+b.}
-$
+$$
 
 The learnable gate $\gamma$ scales the interaction branch. In general, $A$ is asymmetric and its rank is at most $d$. Associativity gives
 
-$
+$$
 h=\frac{Q(K^\top v)}{\sqrt d},
-$
+$$
 
 avoiding an explicit $F\times F$ matrix. The **aggregation** requires $\mathcal O(Fd)$ arithmetic; this is a known linear-attention-style factorization.
 
@@ -56,9 +56,9 @@ avoiding an explicit $F\times F$ matrix. The **aggregation** requires $\mathcal 
 
 VANTA-G replaces the scalar gate with a learnable vector $\boldsymbol\gamma\in\mathbb R^F$:
 
-$
+$$
 \boxed{\hat y=w^\top(v+\boldsymbol\gamma\odot h)+b.}
-$
+$$
 
 With unconstrained affine query projections, these gates can be absorbed into query parameters, so the two residual parameterizations do not differ in their theoretical function families. They may still behave differently during optimization.
 
@@ -66,17 +66,17 @@ With unconstrained affine query projections, these gates can be absorbed into qu
 
 VANTA-RN introduces smooth L2 normalization to control the magnitude of query/key dot products:
 
-$
+$$
 \tilde q_i=\frac{q_i}{\sqrt{1+\lVert q_i\rVert_2^2}},\qquad
 \tilde k_i=\frac{k_i}{\sqrt{1+\lVert k_i\rVert_2^2}}.
-$
+$$
 
 It then uses feature-count scaling:
 
-$
+$$
 \tilde A=\frac{\tilde Q\tilde K^\top}{\sqrt F},\qquad
 \boxed{\hat y=w^\top(v+\gamma\tilde A v)+b.}
-$
+$$
 
 The resulting score magnitude is strictly below $1/\sqrt F$. Signed interactions, asymmetry, low-rank structure, and associative aggregation are preserved. **The final predictions are not bounded**: values, the residual gate, and the readout can still contribute large magnitudes.
 
