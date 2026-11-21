@@ -23,42 +23,42 @@ The associative aggregation used by VANTA follows established ideas from **linea
 
 ## Mathematical formulation
 
-Let there be \(F\) features, with query/key dimension \(d\). Each feature contributes a token \(t_i\in\mathbb R^d\) and a scalar value \(v_i\). Numerical features use their standardized scalar for the value and repeated token coordinates; categorical features use learned token and scalar-value embeddings.
+Let there be $F$ features, with query/key dimension $d$. Each feature contributes a token $t_i\in\mathbb R^d$ and a scalar value $v_i$. Numerical features use their standardized scalar for the value and repeated token coordinates; categorical features use learned token and scalar-value embeddings.
 
 Separate affine projections produce
 
-\[
+$
 q_i=t_i\odot w_i^Q+b_i^Q,\qquad
 k_i=t_i\odot w_i^K+b_i^K.
-\]
+$
 
-Stacking query and key vectors gives \(Q,K\in\mathbb R^{F\times d}\), and collecting scalar values gives \(v\in\mathbb R^F\).
+Stacking query and key vectors gives $Q,K\in\mathbb R^{F\times d}$, and collecting scalar values gives $v\in\mathbb R^F$.
 
 ### VANTA-R — Scalar residual gate
 
 The original formulation uses an unnormalized dot-product interaction matrix:
 
-\[
+$
 A=\frac{QK^\top}{\sqrt d},\qquad
 h=Av,\qquad
 \boxed{\hat y=w^\top(v+\gamma h)+b.}
-\]
+$
 
-The learnable gate \(\gamma\) scales the interaction branch. In general, \(A\) is asymmetric and its rank is at most \(d\). Associativity gives
+The learnable gate $\gamma$ scales the interaction branch. In general, $A$ is asymmetric and its rank is at most $d$. Associativity gives
 
-\[
+$
 h=\frac{Q(K^\top v)}{\sqrt d},
-\]
+$
 
-avoiding an explicit \(F\times F\) matrix. The **aggregation** requires \(\mathcal O(Fd)\) arithmetic; this is a known linear-attention-style factorization.
+avoiding an explicit $F\times F$ matrix. The **aggregation** requires $\mathcal O(Fd)$ arithmetic; this is a known linear-attention-style factorization.
 
 ### VANTA-G — Feature-wise residual gates
 
-VANTA-G replaces the scalar gate with a learnable vector \(\boldsymbol\gamma\in\mathbb R^F\):
+VANTA-G replaces the scalar gate with a learnable vector $\boldsymbol\gamma\in\mathbb R^F$:
 
-\[
+$
 \boxed{\hat y=w^\top(v+\boldsymbol\gamma\odot h)+b.}
-\]
+$
 
 With unconstrained affine query projections, these gates can be absorbed into query parameters, so the two residual parameterizations do not differ in their theoretical function families. They may still behave differently during optimization.
 
@@ -66,19 +66,19 @@ With unconstrained affine query projections, these gates can be absorbed into qu
 
 VANTA-RN introduces smooth L2 normalization to control the magnitude of query/key dot products:
 
-\[
+$
 \tilde q_i=\frac{q_i}{\sqrt{1+\lVert q_i\rVert_2^2}},\qquad
 \tilde k_i=\frac{k_i}{\sqrt{1+\lVert k_i\rVert_2^2}}.
-\]
+$
 
 It then uses feature-count scaling:
 
-\[
+$
 \tilde A=\frac{\tilde Q\tilde K^\top}{\sqrt F},\qquad
 \boxed{\hat y=w^\top(v+\gamma\tilde A v)+b.}
-\]
+$
 
-The resulting score magnitude is strictly below \(1/\sqrt F\). Signed interactions, asymmetry, low-rank structure, and associative aggregation are preserved. **The final predictions are not bounded**: values, the residual gate, and the readout can still contribute large magnitudes.
+The resulting score magnitude is strictly below $1/\sqrt F$. Signed interactions, asymmetry, low-rank structure, and associative aggregation are preserved. **The final predictions are not bounded**: values, the residual gate, and the readout can still contribute large magnitudes.
 
 The implemented variants currently retain the **identity score kernel**. Nonlinear score kernels are a future research direction rather than an existing feature.
 
@@ -169,7 +169,7 @@ Preliminary evidence indicates that learned interactions can be useful, but mode
 
 ## Future directions
 
-- **Nonlinear interaction kernels:** Investigate signed score mappings \(g(\tilde q_i^\top\tilde k_j)\), expressive power, and whether useful factorization or linear-in-feature-count computation can be retained.
+- **Nonlinear interaction kernels:** Investigate signed score mappings $g(\tilde q_i^\top\tilde k_j)$, expressive power, and whether useful factorization or linear-in-feature-count computation can be retained.
 - **Numerical robustness:** Study extreme standardized inputs, query/key norm saturation, readout cancellation, and robust preprocessing.
 - **Optimization:** Compare learning rates, batch sizes, optimizer-update budgets, latent dimension, and residual-gate dynamics.
 - **Generalization:** Extend to independent real-world datasets, different training-set sizes, and more rigorous evaluation protocols.
