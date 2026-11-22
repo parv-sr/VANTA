@@ -8,6 +8,7 @@ Requires the existing EX03 preprocessing and RN training-budget helper.
 from __future__ import annotations
 import argparse
 import functools
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -21,7 +22,17 @@ sys.path[:0] = [str(ROOT/'experiments'/'datasets_ex03'),
                  str(ROOT/'experiments'/'rn_interlude'), str(ROOT/'VANTA_RNX')]
 from datasets import load_dataset, preprocess
 import training_budget_test as budget
-from model import NonlinearFeatureAttentionRegressor, ReferenceRN
+
+# training_budget_test imports VANTA_RN/model.py under the generic name
+# 'model'. Load RNX by its exact path to avoid a sys.modules import collision.
+_RNX_PATH = ROOT / "VANTA_RNX" / "model.py"
+_RNX_SPEC = importlib.util.spec_from_file_location("_ex05_rnx_model", _RNX_PATH)
+if _RNX_SPEC is None or _RNX_SPEC.loader is None:
+    raise ImportError(f"Cannot load VANTA-RNX model from {_RNX_PATH}")
+_RNX_MODULE = importlib.util.module_from_spec(_RNX_SPEC)
+sys.modules[_RNX_SPEC.name] = _RNX_MODULE
+_RNX_SPEC.loader.exec_module(_RNX_MODULE)
+NonlinearFeatureAttentionRegressor = _RNX_MODULE.NonlinearFeatureAttentionRegressor
 
 CANDIDATES = {
     'baseline': ('identity', 'identity'),
