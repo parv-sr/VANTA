@@ -274,13 +274,20 @@ def run_model(dataset, data, profile, name, args, seed, ref_parameters):
     yval = data["splits"]["val"]["actual"]
     ytest = data["splits"]["test"]["actual"]
     pval,ptext=predict("val"),predict("test")
-    row=dict(dataset=dataset,seed=seed,model=name,
-        source_slug=data.get("source_slug", ""),
-        duration_seconds=round(time.perf_counter()-start,3),
+    # Training-only dataset profile already contains 'seed'. Compose a mapping
+    # with well-defined precedence instead of dict(seed=..., **profile), which
+    # raises TypeError *after* the expensive training has finished.
+    row={
+        **profile,
+        "dataset":dataset,
+        "seed":seed,
+        "model":name,
+        "source_slug":data.get("source_slug", ""),
+        "duration_seconds":round(time.perf_counter()-start,3),
         **info,
         **{f"val_{k}":v for k,v in metrics(yval,pval,data["target_std"]).items()},
         **{f"test_{k}":v for k,v in metrics(ytest,ptext,data["target_std"]).items()},
-        **profile)
+    }
     # Scores are diagnostic; no hyperparameter selection on the test partition.
     if args.save_predictions:
         pd.DataFrame(dict(row_index=data["splits"]["test"]["indices"],
