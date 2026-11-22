@@ -229,6 +229,7 @@ def profile_train(data: dict, bundle: dict, seed: int) -> dict:
                 categorical_features=len(bundle["categorical"]),
                 categorical_fraction=len(bundle["categorical"])/len(bundle["features"]),
                 median_cat_cardinality=float(np.median(cards)) if cards else 0,
+                max_cat_cardinality=int(max(cards)) if cards else 0,
                 missing_fraction_train=missing,
                 extreme_numeric_fraction_train=float(np.mean(np.abs(xs)>5)) if xs.size else 0.,
                 target_skew_train=skew, target_std_train=float(data["target_std"]),
