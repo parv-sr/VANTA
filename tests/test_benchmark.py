@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT/"experiments"/"rn_interlude"))
 sys.path.insert(0, str(ROOT/"experiments"/"datasets_ex03"))
 
 from benchmark_datasets import TASKS, load_task, profile_train
-from benchmark import metrics
+from benchmark import metrics, compose_run_record
 from datasets import preprocess
 
 
@@ -46,6 +46,55 @@ class TestBenchmark(unittest.TestCase):
         frame=pd.DataFrame(rows)
         frame.to_csv(path/filename,index=False)
         return path
+
+    def test_run_record_seed_is_not_duplicated(self):
+        row = compose_run_record(
+            {"seed": 42, "rows": 500, "source_sha256": "abc"},
+            dataset="synthetic", seed=42, name="rn",
+            source_slug="test/source", duration_seconds=1.2,
+            info={"parameters": 99},
+            validation_metrics={"RMSE": 2.0},
+            test_metrics={"R2": 0.5},
+        )
+        self.assertEqual(row["seed"], 42)
+        self.assertEqual(row["test_R2"], 0.5)
+        with self.assertRaisesRegex(ValueError, "Profile seed"):
+            compose_run_record(
+                {"seed": 41}, dataset="synthetic", seed=42,
+                name="rn", source_slug="test/source",
+                duration_seconds=1.2, info={},
+                validation_metrics={}, test_metrics={},
+            )
+
+    def test_wine_csv_delimiter_auto_detection(self):
+        from benchmark_datasets import _read_csv
+        task = TASKS["wine_red"]
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)/"winequality-red.csv"
+            for delimiter in [",", ";"]:
+                with self.subTest(delimiter=delimiter):
+                    pd.DataFrame({
+                        "fixed acidity": [7.0, 6.8],
+                        "alcohol": [9.4, 10.0],
+                        "quality": [5, 6],
+                    }).to_csv(path, index=False, sep=delimiter)
+                    parsed = _read_csv(path, task)
+                    self.assertEqual(list(parsed.columns),
+                                     ["fixed acidity", "alcohol", "quality"])
+                    self.assertEqual(len(parsed), 2)
+
+    def test_white_wine_fallback_is_an_explicit_source(self):
+        # Network not required: verify deterministic source identity in the
+        # synthetic local-data case, without contacting Kaggle or UCI.
+        with tempfile.TemporaryDirectory() as temp:
+            k=np.arange(180)
+            row={"fixed acidity":7.+k*.01, "alcohol":9.+k*.02,
+                 "quality":5+(k%3)}
+            self.write_task(temp,"wine_white",row,"winequality-white.csv")
+            data=load_task("wine_white",data_root=Path(temp))
+            self.assertEqual(data["source_slug"], TASKS["wine_white"].slug)
+            self.assertEqual(len(data["numeric"]),2)
+            self.assertEqual(len(data["frame"]),180)
 
     def test_insurance_data_train_only_preprocessing(self):
         with tempfile.TemporaryDirectory() as root:
