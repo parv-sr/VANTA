@@ -7,6 +7,9 @@ An optional local --data-root avoids repeated downloads on CAI.
 from __future__ import annotations
 
 import hashlib
+import os
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 import sys
@@ -110,7 +113,32 @@ def _find_file(name: str, task: Task, data_root: Path | None):
                 return p
         raise FileNotFoundError(f"{name}: expected {task.filename} under {root} or {root/name}; "
                                 "omit --data-root to use KaggleHub downloads")
-    root = Path(kagglehub.dataset_download(task.slug))
+    try:
+        root = Path(kagglehub.dataset_download(task.slug))
+    except Exception as exc:
+        if name != "wine_white":
+            raise
+        # The mlcourse-ai Kaggle mirror may be inaccessible (HTTP 403).
+        # Use the original UCI Wine Quality release as an explicit, documented
+        # fallback; preserve its source URL in the returned bundle.
+        root = Path.home() / ".cache" / "vanta" / "datasets" / "wine_white"
+        root.mkdir(parents=True, exist_ok=True)
+        target = root / "winequality-white.csv"
+        if not target.is_file():
+            url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
+                   "wine-quality/winequality-white.csv")
+            tmp = root / "winequality-white.csv.tmp"
+            try:
+                urllib.request.urlretrieve(url, tmp)
+                os.replace(tmp, target)
+            except Exception as fallback_exc:
+                tmp.unlink(missing_ok=True)
+                raise RuntimeError(
+                    "White Wine Kaggle source unavailable, and official UCI "
+                    "fallback download failed. Check server internet access, "
+                    "or place winequality-white.csv under "
+                    "--data-root/wine_white/.") from fallback_exc
+        return target
     candidates = list(root.rglob(task.filename))
     if len(candidates) != 1:
         # Energy Kaggle mirrors sometimes package the same data as XLSX.
@@ -127,7 +155,11 @@ def _read_csv(path: Path, task: Task):
     if path.suffix.lower() in (".xlsx", ".xls"):
         df = pd.read_excel(path, sheet_name=task.sheet)
     else:
-        df = pd.read_csv(path, sep=task.separator, low_memory=False)
+        # Kaggle mirrors sometimes convert UCI's semicolon-delimited wine CSV
+        # to comma-delimited CSV. Auto-detect rather than relying on filename.
+        df = pd.read_csv(path, sep=None, engine="python")
+        if len(df.columns) == 1 and ("," in str(df.columns[0]) or ";" in str(df.columns[0])):
+            raise ValueError(f"CSV delimiter detection failed for {path}")
     df.columns = df.columns.astype(str).str.strip()
     return df
 
@@ -208,7 +240,11 @@ def load_task(name: str, *, data_root: Path | None = None) -> dict:
     bundle["task_domain"] = task.domain
     bundle["task_characteristic"] = task.characteristic
     bundle["source_sha256"] = hashlib.sha256(Path(source).read_bytes()).hexdigest()
-    bundle["source_slug"] = task.slug
+    bundle["source_slug"] = (
+        "UCI Wine Quality official repository (fallback)"
+        if name == "wine_white" and ".cache/vanta/datasets/wine_white" in str(source)
+        else task.slug
+    )
     return bundle
 
 
