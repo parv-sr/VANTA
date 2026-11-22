@@ -59,7 +59,7 @@ TASKS: dict[str, Task] = {
         "winequality-white.csv", "quality", "chemistry",
         "moderate, all-numeric, ordinal-valued regression", separator=";",
         notes="Kaggle mlcourse.ai mirror is a relatively large download."),
-    "insurance": Task("annetxu/health-insurance-cost-prediction",
+    "insurance": Task("mirichoi0218/insurance",
         "insurance.csv", "charges", "insurance",
         "small, nonlinear categorical effects",
         categories=("sex","smoker","region")),
@@ -137,9 +137,19 @@ def load_task(name: str, *, data_root: Path | None = None) -> dict:
         raise ValueError(f"Unknown benchmark task {name!r}")
     task = TASKS[name]
     # Keep exact existing EX03 task semantics, including Airbnb host-group split.
-    if name in ex03.REGISTRY and data_root is None:
-        bundle = ex03.load_dataset(name)
-        source = Path(bundle["source"])
+    if name in ex03.REGISTRY:
+        # Always use the original EX03 schema, even when --data-root is used.
+        if data_root is None:
+            bundle = ex03.load_dataset(name)
+            source = Path(bundle["source"])
+        else:
+            source = _find_file(name, task, data_root)
+            original_downloader = ex03.download_csv
+            try:
+                ex03.download_csv = lambda _: source
+                bundle = ex03.load_dataset(name)
+            finally:
+                ex03.download_csv = original_downloader
     else:
         source = _find_file(name, task, data_root)
         df = _read_csv(source, task)
@@ -166,6 +176,12 @@ def load_task(name: str, *, data_root: Path | None = None) -> dict:
                 df[x] = pd.to_numeric(df[x], errors="coerce")
             df = df.loc[df[["x","y","z"]].gt(0).all(axis=1) &
                         df[["x","y","z"]].lt(15).all(axis=1)].copy()
+        if name == "auto_mpg":
+            # Kaggle's '?' horsepower missing-value tokens are numeric missingness,
+            # not a categorical level.
+            if "horsepower" not in df.columns:
+                raise ValueError("Auto MPG horsepower field missing")
+            df["horsepower"] = pd.to_numeric(df["horsepower"], errors="coerce")
         categorical_names = {ex03.normalized_name(c) for c in task.categories}
         categorical = [f for f in features
             if ex03.normalized_name(f) in categorical_names
