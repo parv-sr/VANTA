@@ -268,6 +268,10 @@ def summary_tables(all_rows,output,reference_model):
             domain=g["domain"].iloc[0],characteristic=g["characteristic"].iloc[0],
             rows=int(g["rows"].iloc[0]),features=int(g["features"].iloc[0]),
             categorical_fraction=float(g["categorical_fraction"].mean()),
+            numeric_features=int(g["numeric_features"].iloc[0]),
+            categorical_features=int(g["categorical_features"].iloc[0]),
+            median_cat_cardinality=float(g["median_cat_cardinality"].mean()),
+            max_cat_cardinality=int(g["max_cat_cardinality"].max()),
             missing_fraction_train=float(g["missing_fraction_train"].mean()),
             extreme_numeric_fraction_train=float(g["extreme_numeric_fraction_train"].mean()),
             target_skew_train=float(g["target_skew_train"].mean()))
@@ -312,10 +316,13 @@ def summary_tables(all_rows,output,reference_model):
         prof["target_skew_regime"]=np.where(
             np.abs(prof["target_skew_train"])>=2,
             "high_abs_skew","lower_abs_skew")
+        prof["cardinality_regime"]=np.where(
+            prof["max_cat_cardinality"]>=40,
+            "some_high_cardinality","low_cardinality")
         prof=prof.sort_values("NRMSE_mean")
         prof.to_csv(output/"reference_strengths.csv",index=False)
         regimes=[]
-        for facet in ["domain","size_regime","feature_mix","input_tail_regime","target_skew_regime"]:
+        for facet in ["domain","size_regime","feature_mix","input_tail_regime","target_skew_regime","cardinality_regime"]:
             for label,group in prof.groupby(facet,observed=True):
                 regimes.append(dict(facet=facet,regime=str(label),
                     datasets=len(group),mean_R2=float(group["R2_mean"].mean()),
