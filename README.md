@@ -175,6 +175,20 @@ Preliminary evidence indicates that learned interactions can be useful, but mode
 - **Generalization:** Extend to independent real-world datasets, different training-set sizes, and more rigorous evaluation protocols.
 - **Theory:** Characterize interaction order, low-rank constraints, identifiability, and connections to established kernel and feature-interaction models.
 
+## Research documentation and reproducibility
+
+The project keeps an evidence-based research record separate from this introductory README:
+
+- [Architecture and model versions](docs/architecture.md)
+- [Mathematical notes and nonlinear-kernel complexity](docs/mathematical_notes.md)
+- [Experiment registry and measured numerical results](docs/experiment_registry.md)
+- [Supported findings and rejected hypotheses](docs/findings.md)
+- [Research log](docs/research_log.md)
+- [Data and reproducibility protocol](docs/data_and_reproducibility.md)
+- [Experiment entrypoints](experiments/README.md)
+
+The foundational works cited below are also available as [BibTeX](paper/references.bib); citations remain here for accessibility.
+
 ## Research foundations and references
 
 VANTA builds on previous research, particularly the associative computation associated with **linear attention** and the **kernel interpretation of attention**. These connections are acknowledged directly rather than presented as original discoveries.
