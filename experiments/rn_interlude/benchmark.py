@@ -159,7 +159,10 @@ def train_neural(name, data, args, seed, folder, ref_parameters):
             target_std=data["target_std"],latent_dim=args.latent_dim,
             hidden_dim=hidden,parameters=parameters), folder/"checkpoint.pt")
     return (lambda part: neural_predict(model,data["splits"][part]["tensor"],data,args.torch_device)), dict(
-        parameters=parameters,mlp_hidden_width=hidden,best_epoch=best_epoch,updates=updates)
+        parameters=parameters,mlp_hidden_width=hidden,
+        mlp_reference_parameters=ref_parameters if name=="mlp" else None,
+        mlp_parameter_ratio=parameters/max(ref_parameters,1) if name=="mlp" else None,
+        best_epoch=best_epoch,updates=updates)
 
 
 def train_tree(name, data, args, seed, folder):
@@ -231,6 +234,7 @@ def run_model(dataset, data, profile, name, args, seed, ref_parameters):
     ytest = data["splits"]["test"]["actual"]
     pval,ptext=predict("val"),predict("test")
     row=dict(dataset=dataset,seed=seed,model=name,
+        source_slug=data.get("source_slug", ""),
         duration_seconds=round(time.perf_counter()-start,3),
         **info,
         **{f"val_{k}":v for k,v in metrics(yval,pval,data["target_std"]).items()},
@@ -286,8 +290,29 @@ def summary_tables(all_rows,output,reference_model):
         ranks.groupby("model").agg(mean_rank=("rank","mean"),tasks=("dataset","nunique")).to_csv(
             output/"ranks.csv")
     if reference_model in df.model.unique():
-        prof=summary[summary.model==reference_model].sort_values("NRMSE_mean")
+        prof=summary[summary.model==reference_model].copy()
+        # Data-regime tags use dataset-level TRAIN descriptors only.
+        prof["size_regime"]=pd.cut(prof["rows"],bins=[0,1500,10000,float("inf")],
+            labels=["small_<=1500","medium_1501_10000","large_>10000"])
+        prof["feature_mix"]=np.where(prof["categorical_fraction"]>=.3,
+            "categorical_heavy",np.where(prof["categorical_fraction"]>0,
+            "mixed","numeric_only"))
+        prof["input_tail_regime"]=np.where(
+            prof["extreme_numeric_fraction_train"]>=.005,
+            "many_>5sigma","few_>5sigma")
+        prof["target_skew_regime"]=np.where(
+            np.abs(prof["target_skew_train"])>=2,
+            "high_abs_skew","lower_abs_skew")
+        prof=prof.sort_values("NRMSE_mean")
         prof.to_csv(output/"reference_strengths.csv",index=False)
+        regimes=[]
+        for facet in ["domain","size_regime","feature_mix","input_tail_regime","target_skew_regime"]:
+            for label,group in prof.groupby(facet,observed=True):
+                regimes.append(dict(facet=facet,regime=str(label),
+                    datasets=len(group),mean_R2=float(group["R2_mean"].mean()),
+                    mean_NRMSE=float(group["NRMSE_mean"].mean()),
+                    median_NRMSE=float(group["NRMSE_mean"].median())))
+        pd.DataFrame(regimes).to_csv(output/"regime_summary.csv",index=False)
 
 
 def main():
@@ -357,6 +382,9 @@ def main():
         weight_decay=args.weight_decay,patience=args.patience,eval_every=args.eval_every),
         model_config=dict(latent_dim=args.latent_dim,rnx_kernel=args.rnx_kernel,
         rnx_value=args.rnx_value,plugin=args.plugin,plugin_kwargs=args.plugin_kwargs),
+        environment=dict(torch_version=torch.__version__,
+            cuda_available=torch.cuda.is_available(),
+            cuda_device=torch.cuda.get_device_name(0) if torch.cuda.is_available() else None),
         tree_iterations=args.trees)
     (args.output/"run_settings.json").write_text(json.dumps(info,indent=2))
     all_rows=[]
