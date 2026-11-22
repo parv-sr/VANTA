@@ -1,49 +1,70 @@
-# Findings: supported conclusions, limitations, rejected hypotheses
+# Findings and limitations
 
-**Status:** exploratory evidence through 2026-11-22. For all measured values and protocols see [experiment_registry.md](experiment_registry.md); for theory see [mathematical_notes.md](mathematical_notes.md). These are *not* general performance claims on untouched external data.
+Findings are restricted to implemented model properties and observed
+experiments. Refer to [the numerical registry](experiment_registry.md),
+[Benchmark-15](benchmark15_results.md), and [preprocessing results](ex05_preprocessing_freeze.md)
+for supporting values. Repeatedly evaluated datasets are exploratory
+rather than independent confirmation sets.
 
-## Established mathematical properties
+## Mathematically established properties
 
-1. VANTA-R and RN aggregate signed and generally asymmetric rank-≤d scores associatively in O(Fd) arithmetic, using a known linear-attention technique.
-2. VANTA-RN's smooth L2 normalization gives |A_ij| < 1/sqrt(F) for finite Q/K. This **does not** imply bounded h, gamma, readout, or prediction.
-3. Separate query and key projections permit directional source-versus-receiver feature contribution accounting; algebraic contributions are not causal feature importances.
-4. Finite-dimensional separable nonlinear feature maps can preserve O(Fm) aggregation; O(Fd) is possible when feature-map dimension and evaluation scale as O(d).
+- VANTA-R and RN compute their interaction aggregations associatively
+  without materializing the feature-by-feature attention matrix.
+  Aggregation arithmetic is O(Fd), independent of dataset row count.
+- RN's smooth projection normalization yields
+  |A_ij| < 1/sqrt(F) for finite vectors. It does not bound the final
+  prediction because values, gamma and readout weights remain unrestricted.
+- The score matrix has rank at most min(F,d). Increasing latent width
+  beyond F cannot increase this upper bound, although it changes the
+  parameterized query/key functions and optimization geometry.
+- The implemented RNX maps preserve the separable attention factorization.
+  This gives O(Fd) aggregation for width-d feature maps.
 
-## Observed empirical findings
+## Empirical observations
 
-- **Diamonds success is dataset-specific.** The initial R² around 0.974 was below stronger MLP/tree baselines and did not establish broad superiority.
-- **Initialization consistency is not cross-split consistency.** On a fixed Diamonds split five-seed VANTA-R R² SD was ~0.00008; changing split and initialization together in EX03 produced larger variation and catastrophic Ames failure.
-- **Normalization mitigated, not eliminated, extreme Ames extrapolation.** VANTA-R on Ames seed 43 predicted ~$2.06M for a ~$184k house, yielding R² -1.81892 on that run. RN's attention scores remained within bound, but an RN tuned checkpoint still predicted ~$562k on that house.
-- **Optimization budget is material.** Concrete RN R² improved from 0.64887 to 0.85103 (three-seed means) under extended training and batch-size 128, but optimizer-update count, noise and wall-clock budget were not isolated independently.
-- **Matched MLP remains competitive.** California tuned RN R² 0.77989 versus MLP 0.78209, with RN slightly worse per-seed RMSE on all three explored splits; Ames RN 0.86757 versus MLP 0.88139 in R², although RN mean MAE ~$14,767 versus ~$15,189.
-- **Boosted trees remain stronger on overall R²/RMSE** in the studied tuned California and Ames comparisons; this should remain visible in any paper.
-- **Rare rows dominate some squared-error metrics.** Ames tuned seed 43 row 2180 contributes 56.51% of squared error; this does not show up equally in MAE.
-- **The fitted interaction branch matters.** Removing it *without retraining* raises Ames mean RMSE ~$29.9k to ~$47.3k and California ~$54.1k to ~$208.8k. These do not measure retrained no-attention architectures.
-- **Gamma alone is not an explanatory variable.** Its effect is gamma × readout × aggregation, and across seeds both data partition and stopping epoch vary.
+- A fixed-split five-seed Diamonds study had low initialization
+  variability; studies changing data partitions had greater variability.
+- The original unnormalized R formulation produced severe extrapolation
+  errors on some Ames observations. RN reduced score magnitudes and
+  improved the historical mean test R², but extreme predictions persisted.
+- Increasing training budget and selecting minibatch size on validation
+  substantially improved RN's Concrete results. The study does not
+  separately identify the effect of epoch count and batch size.
+- On Ames, validation-selected numeric asinh preprocessing reduced mean
+  confirmation RMSE from $27,411.838 to $24,550.434 across three seeds.
+  The paired effect was not consistently favorable.
+- The Ames RNX confirmation showed a modest average improvement from
+  a two-unit numerical value mapping, with little additional gain from
+  combining it with Q/K tanh. The three-split uncertainty was large.
+- In Benchmark-15 (15 datasets, three seeds each), RN exceeded the
+  matched MLP's mean test R² on eight datasets. Tree ensembles had better
+  cross-dataset rank averages and were usually stronger.
+- White Wine showed a repeatable XGBoost advantage over RN on seeds
+  42, 43 and 44. Red Wine was much closer. The wine datasets have the
+  same 11 numerical features but differ in size and data distribution.
+  This comparison does not establish a mechanism for the performance gap.
+- On Ames, high concentration of test squared error in a small number
+  of observations remained a significant diagnostic concern.
 
-## Rejected, narrowed, or unsupported hypotheses
+## Claims not established by these experiments
 
-| Earlier conjecture | Disposition |
-|---|---|
-| High Diamonds R² implies generalization superiority | **Rejected as a broad claim** by EX03 and tuned training-budget comparison |
-| Small fixed-split seed SD implies universal stability | **Narrowed:** split variability is distinct |
-| Ames catastrophic error proves exploding learned weights | **Unsupported:** fitted parameter magnitudes are finite/moderate; large inputs and residual contributions remain |
-| Bounded attention scores imply bounded predictions | **Mathematically false** |
-| Lower gamma is the direct cause of Airbnb's higher R² | **Unsupported:** splits/stopping confound interpretation |
-| Per-feature gate automatically expands function family with unbounded Q | **Generally false** under query-row rescaling |
-| Poor original-budget RN Concrete score proves insufficient representation | **Premature**, contradicted by substantial optimization gains |
-| Best observed test gate multiplier should replace trained gamma | **Rejected:** test sweep is diagnostic, not model selection |
-| True nonlinear attention must be quadratic in F | **False in general** with suitable separable feature maps |
-| Immediately add further attention normalization or kernels | **Deferred** pending robust-input study |
+- General superiority to XGBoost, CatBoost or carefully tuned MLPs.
+- Output boundedness from normalized query/key scores alone.
+- A causal link between any individual feature or learned gate and a
+  prediction error, inferred solely from algebraic contributions.
+- Performance of an independently retrained attention-free architecture
+  from post-hoc branch ablation.
+- Improved robustness or generalization from RNX's value mapping
+  outside the examined Ames confirmation partitions.
+- Inference latency or energy superiority from the O(Fd) aggregation
+  complexity expression alone.
 
-## Open questions
+## Evaluation limitations
 
-1. Can a **training-only-fitted** robust numeric transformation reduce high-leverage extrapolation while retaining typical accuracy?
-2. Is Q/K projection saturation a *cause* of optimization limitations or a consequence of learned representations?
-3. What is the expressivity cost of pairwise-only interactions, versus an ordinary MLP?
-4. Which exact/approximate nonlinear kernels preserve signed scores and linear-in-feature-count complexity with manageable feature-map width?
-5. How do results change on strictly untouched tasks and when varying initialization separately from the data partition?
-
-## Evidence requirements before manuscript claims
-
-Independent held-out datasets/splits, paired uncertainty, documented compute budgets, stable code/config manifests, no test-set selection, and direct ablation under matched retraining budgets.
+Datasets were repeatedly inspected during model development.
+Model optimization budgets and tree tuning differ. Existing seeds
+often vary both partition and initialization simultaneously; the new
+width-sweep protocol separates these variables. Time-correlated
+datasets in Benchmark-15 use random rather than forward-in-time splits.
+Duplicate feature vectors may cross random train/test partitions in
+wine datasets. These design choices limit external generalization claims.
