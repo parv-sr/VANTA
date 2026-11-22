@@ -1,8 +1,8 @@
-"""VANTA-RN interlude: validation-selected CPU-friendly standoff.
+"""VANTA-RN interlude: validation-selected training-budget comparison.
 
 Run from repository root:
- uv run python3 experiments/rn_interlude/standoff.py --stage search --dataset concrete
- uv run python3 experiments/rn_interlude/standoff.py --stage confirm --dataset concrete
+ uv run python3 experiments/rn_interlude/training_budget_test.py --stage search --dataset concrete
+ uv run python3 experiments/rn_interlude/training_budget_test.py --stage confirm --dataset concrete
 
 Search uses seeds 101,102; confirmation uses seeds 42,43,44. The test
 partition is never examined during search. Results live below
