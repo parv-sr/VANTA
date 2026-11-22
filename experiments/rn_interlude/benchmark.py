@@ -254,6 +254,24 @@ def config_snapshot(args, models, seed, dataset, source_hash):
         save_checkpoints=args.save_checkpoints)
 
 
+def compose_run_record(profile, *, dataset, seed, name, source_slug,
+                       duration_seconds, info, validation_metrics, test_metrics):
+    """Combine metadata without passing duplicate keyword arguments to dict()."""
+    if "seed" in profile and profile["seed"] != seed:
+        raise ValueError("Profile seed does not match this training run")
+    return {
+        **profile,
+        "dataset": dataset,
+        "seed": seed,
+        "model": name,
+        "source_slug": source_slug,
+        "duration_seconds": duration_seconds,
+        **info,
+        **{f"val_{key}": value for key, value in validation_metrics.items()},
+        **{f"test_{key}": value for key, value in test_metrics.items()},
+    }
+
+
 def run_model(dataset, data, profile, name, args, seed, ref_parameters):
     folder=args.output/dataset/f"seed_{seed}"/name
     folder.mkdir(parents=True,exist_ok=True)
@@ -274,20 +292,14 @@ def run_model(dataset, data, profile, name, args, seed, ref_parameters):
     yval = data["splits"]["val"]["actual"]
     ytest = data["splits"]["test"]["actual"]
     pval,ptext=predict("val"),predict("test")
-    # Training-only dataset profile already contains 'seed'. Compose a mapping
-    # with well-defined precedence instead of dict(seed=..., **profile), which
-    # raises TypeError *after* the expensive training has finished.
-    row={
-        **profile,
-        "dataset":dataset,
-        "seed":seed,
-        "model":name,
-        "source_slug":data.get("source_slug", ""),
-        "duration_seconds":round(time.perf_counter()-start,3),
-        **info,
-        **{f"val_{k}":v for k,v in metrics(yval,pval,data["target_std"]).items()},
-        **{f"test_{k}":v for k,v in metrics(ytest,ptext,data["target_std"]).items()},
-    }
+    row = compose_run_record(
+        profile, dataset=dataset, seed=seed, name=name,
+        source_slug=data.get("source_slug", ""),
+        duration_seconds=round(time.perf_counter()-start, 3),
+        info=info,
+        validation_metrics=metrics(yval, pval, data["target_std"]),
+        test_metrics=metrics(ytest, ptext, data["target_std"]),
+    )
     # Scores are diagnostic; no hyperparameter selection on the test partition.
     if args.save_predictions:
         pd.DataFrame(dict(row_index=data["splits"]["test"]["indices"],
