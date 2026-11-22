@@ -405,7 +405,15 @@ def main():
                 del reference
                 for model in [*args.models,*args.baselines]:
                     print(f"{name} seed={seed} model={model}",flush=True)
-                    row=run_model(name,data,profile,model,args,seed,ref_parameters)
+                    try:
+                        row=run_model(name,data,profile,model,args,seed,ref_parameters)
+                    except Exception:
+                        if not args.continue_on_error: raise
+                        trace=traceback.format_exc()
+                        with (args.output/"failures.txt").open("a") as fp:
+                            fp.write(f"\n{name} seed={seed} model={model}\n{trace}\n")
+                        print(f"FAILED {name} seed={seed} model={model}: {trace}",flush=True)
+                        continue
                     all_rows.append(row)
                     summary_tables(all_rows,args.output,args.models[0])
                     print(f"test R²={row['test_R2']:.4f} NRMSE={row['test_NRMSE']:.4f}",flush=True)
