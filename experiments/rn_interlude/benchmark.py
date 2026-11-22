@@ -18,6 +18,7 @@ import json
 import math
 import os
 import random
+import subprocess
 import sys
 import time
 import traceback
@@ -38,6 +39,36 @@ import run_exp as ex03
 
 NEURAL = ("rn", "r", "g", "rnx")
 BASELINES = ("mlp", "xgboost", "catboost")
+
+
+def fingerprint_sources(plugin_path: str = "") -> str:
+    """Hash executable model, preprocessing and runner sources to reject stale cache."""
+    paths = [
+        Path(__file__), HERE/"benchmark_datasets.py",
+        ROOT/"experiments"/"datasets_ex03"/"datasets.py",
+        ROOT/"experiments"/"datasets_ex03"/"run_exp.py",
+        ROOT/"VANTA_R"/"model.py",
+        ROOT/"VANTA_G"/"model.py",
+        ROOT/"VANTA_RN"/"model.py",
+        ROOT/"VANTA_RNX"/"model.py",
+    ]
+    if plugin_path:
+        plugin_source=Path(plugin_path.rsplit(":",1)[0]).expanduser().resolve()
+        if not plugin_source.is_file():
+            raise FileNotFoundError(f"Model plugin source missing: {plugin_source}")
+        paths.append(plugin_source)
+    h = hashlib.sha256()
+    for path in paths:
+        if path.exists():
+            h.update(str(path.relative_to(ROOT) if path.is_relative_to(ROOT) else path).encode())
+            h.update(path.read_bytes())
+    return h.hexdigest()
+
+
+def git_commit_sha():
+    result = subprocess.run(["git","rev-parse","HEAD"],cwd=ROOT,
+        capture_output=True,text=True,check=False)
+    return result.stdout.strip() if result.returncode==0 else "unavailable"
 
 
 def load_file_class(path: Path, symbol: str, name: str):
@@ -211,6 +242,7 @@ def train_tree(name, data, args, seed, folder):
 def config_snapshot(args, models, seed, dataset, source_hash):
     return dict(dataset=dataset,seed=seed,source_sha256=source_hash,
         models=list(models),latent_dim=args.latent_dim,
+        code_fingerprint=args.code_fingerprint,git_commit=args.git_commit,
         batch_size=args.batch_size,lr=args.lr,epochs=args.epochs,
         patience=args.patience,eval_every=args.eval_every,
         trees=args.trees,weight_decay=args.weight_decay,
@@ -392,7 +424,10 @@ def main():
     except json.JSONDecodeError:p.error("Invalid plugin JSON")
     torch.set_num_threads(args.threads)
     args.output.mkdir(parents=True,exist_ok=True)
+    args.code_fingerprint = fingerprint_sources(args.plugin)
+    args.git_commit = git_commit_sha()
     info=dict(datasets=all_tasks,models=args.models,baselines=args.baselines,seeds=args.seeds,
+        code_fingerprint=args.code_fingerprint,git_commit=args.git_commit,
         device=str(args.torch_device),tree_gpu=args.tree_gpu,
         train=dict(epochs=args.epochs,batch_size=args.batch_size,lr=args.lr,
         weight_decay=args.weight_decay,patience=args.patience,eval_every=args.eval_every),
