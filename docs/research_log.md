@@ -30,7 +30,7 @@ The key insight was a Cauchy–Schwarz score bound preserving signed asymmetry a
 
 Airbnb RN seed 42 learned gamma ~1.95 at R² ~0.0915; seed 43 learned ~0.796 at R² ~0.1256. This **did not prove** that suppressing attention improves generalization because splits, training durations and effective readout scaling varied.
 
-On Concrete, increased training budget and a validation-selected batch size 128 improved three-seed mean RN R² from 0.64887 to 0.85103, changing the understanding of its original underperformance. Ames tuned RN improved more modestly, and tree baselines continued to lead. The separate tuned standoff on California gave RN mean R² 0.77989 and matched MLP 0.78209, with XGBoost/CatBoost near 0.853.
+On Concrete, increased training budget and a validation-selected batch size 128 improved three-seed mean RN R² from 0.64887 to 0.85103, changing the understanding of its original underperformance. Ames tuned RN improved more modestly, and tree baselines continued to lead. The separate tuned training-budget comparison on California gave RN mean R² 0.77989 and matched MLP 0.78209, with XGBoost/CatBoost near 0.853.
 
 ## Attribution and residual pathway studies
 

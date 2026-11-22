@@ -25,7 +25,7 @@
 
 | Earlier conjecture | Disposition |
 |---|---|
-| High Diamonds R² implies generalization superiority | **Rejected as a broad claim** by EX03 and standoff |
+| High Diamonds R² implies generalization superiority | **Rejected as a broad claim** by EX03 and tuned training-budget comparison |
 | Small fixed-split seed SD implies universal stability | **Narrowed:** split variability is distinct |
 | Ames catastrophic error proves exploding learned weights | **Unsupported:** fitted parameter magnitudes are finite/moderate; large inputs and residual contributions remain |
 | Bounded attention scores imply bounded predictions | **Mathematically false** |

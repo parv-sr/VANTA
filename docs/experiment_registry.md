@@ -65,13 +65,13 @@ All statistics refer to test means ± sample SD; original baseline budget.
 
 Largest observed attention-score magnitudes: Ames 0.09554 versus bound 0.11396; California 0.29064 versus 0.33333; Airbnb 0.27589 versus 0.31623; Concrete 0.30360 versus 0.35355. On Airbnb seeds 42/43/44, RN gamma ~1.9487/0.7962/0.7064 and R² ~0.09150/0.12555/0.12345; splits and stopping epochs differ.
 
-## RN interlude: budget tuning and standoff
+## RN interlude: budget tuning and model comparison
 
 Concrete validation seed 101, up to 600 epochs: batch128 RMSE 5.3827, higher LR 5.5499, width48 6.0576, gamma_init0.5 6.3057, long reference 6.7545. On seeds 42–44, tuned RN test R² 0.85103 ± 0.02053, RMSE 6.098 ± 0.398 versus original RN R² 0.64887 ± 0.02253, RMSE 9.376 ± 0.323.
 
 Ames validation seed 101: batch128 RMSE 20,295.71, higher LR 20,321.32, gamma_init0.5 20,328.98, width48 20,486.82, long reference 20,499.37. Confirmation tuned RN R² 0.86757 ± 0.04599, RMSE 29,925.805 ± 5,036.103 versus original RN 0.85366 ± 0.02222, 31,867.379 ± 2,887.322. Optimization updates and batch-size effects are confounded.
 
-### Tuned model standoff: mean ± sample SD, three explored splits
+### Tuned training-budget model comparison: mean ± sample SD, three explored splits
 
 | Dataset | Model | Test R² | Test RMSE | Test MAE |
 |---|---|---:|---:|---:|

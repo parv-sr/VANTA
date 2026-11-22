@@ -9,7 +9,7 @@ See [numerical registry](../docs/experiment_registry.md), [reproducibility guide
 | EX03 | datasets_ex03/run_exp.py | Four-dataset generalization and baselines |
 | EX04 | ../VANTA_RN/train.py | Smooth projection norm and feature-count scaling |
 | RN tuning | rn_interlude/tune.py | Neural optimization and budget |
-| RN standoff | rn_interlude/training_budget_test.py | Tuned matched MLP/XGBoost/CatBoost comparison |
+| RN training-budget comparison | rn_interlude/training_budget_test.py | Tuned matched MLP/XGBoost/CatBoost comparison |
 | RN diagnostics | rn_interlude/diagnose.py, rn_interlude/trace_explosions.py | Prediction decomposition and input effects |
 | RN residual ablation | rn_interlude/residual_ablation.py | Post-hoc gate interventions |
 | RN preprocessing | rn_interlude/preprocessing_experiment.py | Train-only numeric-tail robustness |
