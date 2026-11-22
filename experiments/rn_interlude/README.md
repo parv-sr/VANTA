@@ -27,3 +27,8 @@ uv run python3 experiments/rn_interlude/training_budget_test.py --dataset califo
 Historical output remains under `results/standoff/` for compatibility with existing checkpoints and attribution scripts; only source-file naming is standardized.
 
 The post-hoc residual gate sweep is **not** an independently trained architecture ablation and its test numbers cannot select the gate.
+
+
+## Generalization benchmark across 15 Kaggle tasks
+
+The new modular benchmark, its dataset registry, CLI instructions and inference limitations are documented in [BENCHMARK15.md](BENCHMARK15.md). It defaults to VANTA-RN, supports 3–5 seeds, and optionally includes an approximately parameter-matched MLP, XGBoost and CatBoost. The same runner can load R, RNX and compatible future variants; use `--list-datasets` and `--inspect` before training on CAI.
