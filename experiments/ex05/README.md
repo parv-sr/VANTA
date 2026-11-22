@@ -32,7 +32,7 @@ uv run python experiments/ex05/run_feature_maps.py --dataset ames --stage search
 uv run python experiments/ex05/run_feature_maps.py --dataset ames --stage confirm
 ~~~
 
-Repeat on California as warranted. Complete artifacts in experiments/ex05/results/ are excluded from Git and must be backed up.
+Full artifacts in experiments/ex05/results/ are excluded from Git. The recorded Ames confirmation is the completed evaluation summarized below.
 
 
 ## Completed Ames confirmation

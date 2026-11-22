@@ -66,11 +66,11 @@ so aggregation costs $O(Fm)$ plus computing $\phi$ and $\psi$.
 3. **Approximate feature maps:** random or trained finite maps may approximate richer kernels in $O(Fm)$ with an approximation-accuracy tradeoff. Any efficiency claim must report $m$, errors, map-construction cost and hardware.
 4. **Direct arbitrary elementwise $g$:** applying $g$ to every entry of an explicit $F\times F$ matrix generally forfeits simple associative $O(Fd)$ evaluation.
 
-Scalar dot-product nonlinearities and separable nonlinear vector maps define different function families. Exact finite-dimensional factorizations determine whether associative aggregation remains available. With existing RN L2 normalization, additional tanh maps introduce another saturation mechanism, so compare against identically trained identity-kernel RN.
+Scalar dot-product nonlinearities and separable nonlinear vector maps define different function families. Exact finite-dimensional factorizations determine whether associative aggregation remains available. The RN normalization and additional nonlinear maps compose into a different operator; empirical effects must be assessed in controlled experiments.
 
 ## Pairwise versus three-way features
 
-Each $q_i$ depends on one original column, each $k_j$ on another and $v_j$ on column $j$. A single layer with scalar score $g(q_i^\top k_j)$ gives a sum of functions of at most pairs $(x_i,x_j)$, even if individual terms have high polynomial degree (e.g. $x_ix_j^2$). This does not automatically represent a genuine three-feature product $x_1x_2x_3$. This limitation may matter for nonlinear benchmarks; it is not established as the cause of current accuracy gaps.
+Each $q_i$ depends on one original column, each $k_j$ on another and $v_j$ on column $j$. A single layer with scalar score $g(q_i^\top k_j)$ gives a sum of functions of at most pairs $(x_i,x_j)$, even if individual terms have high polynomial degree (e.g. $x_ix_j^2$). This does not automatically represent a genuine three-feature product $x_1x_2x_3$. This is a mathematical restriction of the single-layer feature-separable formulation; existing model comparisons do not identify it as the cause of the observed accuracy differences.
 
 ## Interpretation cautions
 
