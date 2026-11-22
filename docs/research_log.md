@@ -1,61 +1,101 @@
-# Research log — reconstructed VANTA decision history
+# Experimental chronology
 
-**Reconstructed November 22, 2026** from prior project discussions, code and saved outputs. It is not a contemporaneous notebook. Early dates are not independently established; chronology is reliable at the phase level. See [experiment registry](experiment_registry.md) for all numerical figures and [findings](findings.md) for confidence levels.
+This document summarizes completed experiments in chronological order.
+Numerical details appear in [experiment_registry.md](experiment_registry.md),
+[benchmark15_results.md](benchmark15_results.md) and
+[ex05_preprocessing_freeze.md](ex05_preprocessing_freeze.md). Experimental
+descriptions are retrospective; original run timestamps and complete per-row
+artifacts are not available for every study.
 
-## EX01 — initial VANTA-R, feature interactions and Diamonds
+## EX01 — Initial formulation and Diamonds evaluation
 
-The starting interest was an explicit, compact signed interaction operator for tabular regression: one token and scalar value per original feature, independent Q/K projections, no softmax, linear readout, and gated residual. The associative computation was recognized as based on existing linear-attention work and not an independent invention. The early Diamonds result near 97.4% R² was promising; stronger MLP and tree scores motivated separating parameter efficiency from predictive superiority.
+VANTA-R was implemented as a signed, non-softmax feature-interaction regression
+model with separate query/key projections, a scalar-gated residual pathway,
+and a linear readout. The associative aggregation implements an established
+linear-attention factorization. On the initial Diamonds evaluation, test
+R² was approximately 0.974 with approximately 1,450 trainable parameters.
+Matched MLP and tree-ensemble baselines attained higher R².
 
-## EX02 — initialization-seed reliability
+Independent Diamonds ablations of attention removal, frozen query/key
+projections and fixed gamma are retained as committed JSON records.
 
-Five repetitions on the *same* Diamonds split produced low initialization variance (VANTA-R R² 0.97431 ± 0.00008, RMSE 632.12 ± 0.97) but a stronger matched MLP (R² 0.97966 ± 0.00033). The original impression of universal stability was explicitly narrowed to fixed-split initialization behavior.
+## EX02 — Fixed-split initialization study
 
-## EX03 — cross-dataset generalization shock
+Five initializations on a fixed Diamonds partition produced VANTA-R
+R² = 0.97431 ± 0.00008 and RMSE = 632.12 ± 0.97.
+The matched MLP produced R² = 0.97966 ± 0.00033 and RMSE = 562.52 ± 4.64.
+The study measures initialization variability on one partition only.
 
-Concrete, California Housing, Ames and NYC Airbnb were added, with Ridge, MLP, XGBoost and CatBoost. With seeds changing both split and initialization, R no longer consistently competed with the baselines. Ames seed 43 yielded R² -1.81892; two houses accounted for about 97.2% of total squared error, with one predicted at $2,059,981 against $183,850 actual. The team considered exploding weights but correctly distinguished **exploding predictions** from evidence of diverging parameter values.
+## EX03 — Multi-dataset evaluation
 
-## EX04 — mathematically bounded Q/K
+Concrete, California Housing, Ames Housing and NYC Airbnb were evaluated
+against Ridge, parameter-matched MLP, XGBoost and CatBoost. Three seeds
+changed the data partition and model initialization together. The original
+model showed high error variance on Ames: seed 43 produced R² = -1.81892
+and a prediction of $2,059,981 against an actual value of $183,850.
+No observations were removed from the reported test metrics.
 
-The next design changed only Q/K norm scaling and the aggregation divisor, producing VANTA-RN:
+## EX04 — Smooth projection normalization
 
-$$
-\tilde q_i=q_i/\sqrt{1+\|q_i\|^2}, \quad
-\tilde k_i=k_i/\sqrt{1+\|k_i\|^2}, \quad
-h=\tilde Q(\tilde K^\top v)/\sqrt F.
-$$
+VANTA-RN introduced smooth L2 normalization of query and key feature
+vectors and replaced the original sqrt(d) attention divisor with sqrt(F).
+These modifications bound individual attention coefficients but not the
+regression output. The original-budget Ames R² changed from
+-0.04129 ± 1.54028 (R) to 0.85366 ± 0.02222 (RN). California improved;
+Concrete worsened under the initial budget.
 
-The key insight was a Cauchy–Schwarz score bound preserving signed asymmetry and the O(Fd) associative computation. Ames mean R² improved from -0.04129 ± 1.54028 (R) to 0.85366 ± 0.02222 (RN), California improved, and Concrete initially worsened. The new questions became: has normalization made learning harder, and are the worst inputs amplifying the *value* path?
+## RN interlude — Optimization and model comparison
 
-## RN interlude — gamma, diagnostics, training budget
+A longer neural training budget and validation-selected minibatch size
+changed Concrete RN mean test R² from 0.64887 to 0.85103. On California,
+a separately tuned comparison produced RN R² = 0.779891 and matched MLP
+R² = 0.782091, with XGBoost and CatBoost around 0.853.
+Ames RN mean RMSE was $29,925.805 in the tuned comparison.
 
-Airbnb RN seed 42 learned gamma ~1.95 at R² ~0.0915; seed 43 learned ~0.796 at R² ~0.1256. This **did not prove** that suppressing attention improves generalization because splits, training durations and effective readout scaling varied.
+Inspection of saved model outputs identified extreme predictions and large
+direct/interaction contributions on selected Ames and California cases.
+A post-hoc residual-gate sweep found strong dependence on jointly trained
+direct and interaction branches. These results do not estimate the
+performance of independently retrained attention-free models.
 
-On Concrete, increased training budget and a validation-selected batch size 128 improved three-seed mean RN R² from 0.64887 to 0.85103, changing the understanding of its original underperformance. Ames tuned RN improved more modestly, and tree baselines continued to lead. The separate tuned training-budget comparison on California gave RN mean R² 0.77989 and matched MLP 0.78209, with XGBoost/CatBoost near 0.853.
+## Numeric input-preprocessing study — Ames
 
-## Attribution and residual pathway studies
+Standard preprocessing, z-score clipping, training-fitted winsorization,
+and signed asinh compression were compared using validation seeds 301
+and 302. Asinh was selected for confirmation on seeds 303–305.
+Mean confirmation test RMSE was $24,550.434 (asinh) versus
+$27,411.838 (standard). The three paired RMSE changes were
+-$7,927.496, +$374.796 and -$1,031.513. The intervention
+changes numerical query/key inputs, attention values, and direct values
+simultaneously.
 
-Diagnostics showed raw Q/K projections and values can be large while *normalized scores remain bounded*. Ames extreme standardized coordinates included Misc Val +33.63 and Lot Area +32.28. The tuned seed-43 prediction for row 2180 was ~$562k versus $184k actual, split into ~$286k direct plus ~$277k attention. The source-feature Misc Val contributed +$110k to the signed attention term. California sometimes showed very large opposing direct/attention terms and learned gamma above 3.
+## EX05-A — Single-block nonlinear feature maps
 
-A post-hoc ablation varied the *trained* gate multiplier. Ames full mean RMSE ~$29.9k, direct-only ~$47.3k; California full ~$54.1k, direct-only ~$208.8k. Ames gate ×0.75 happened to produce mean test RMSE ~$29.845k, near the full ~$29.926k, but no gate should be chosen from examined test results. These are interventions on jointly trained weights, not retrained structural ablations.
+The RNX model implemented separate query/key vector maps and a
+numeric attention-value transformation with unchanged associative
+aggregation. Validation selected a componentwise tanh Q/K map and
+a two-unit GELU value mapping on Ames. Confirmation across split/init
+seeds 403–405 produced the following mean test RMSE:
 
-## Scientific project practices established
+| Model | RMSE | R² |
+|---|---:|---:|
+| RN reference | 30,393.431 | 0.820277 |
+| Tanh Q/K | 30,332.108 | 0.821290 |
+| GELU2 attention values | 29,595.707 | 0.834308 |
+| Combined tanh/GELU2 | 29,566.968 | 0.834786 |
 
-Create a permanent architecture specification, mathematical notes, registry of all experiments, findings by evidence level and a dated research log. Keep both successful and failed studies; version numerical results and code separately. Treat the LaTeX manuscript as a conservative summary and leave citations in the GitHub README as well as creating a parallel BibTeX database. Optional MLflow may support experiment tracking, but its introduction should not displace readable Markdown findings and immutable result manifests.
+The confirmation standard deviations were large. These results do not
+demonstrate a general benefit across datasets.
 
-## Intended next experiments
+## Benchmark-15 — Heterogeneous tabular regression
 
-1. Complete the **robust numerical preprocessing** study while keeping VANTA-RN unchanged, using train-only-fit transforms and validation selection.
-2. Unless preprocessing reveals a major unexpected mechanism, proceed to EX05 and examine true nonlinear feature interaction kernels.
-3. For EX05, distinguish nonlinear separable vector maps that can retain O(Fd) from arbitrary scalar g(qᵀk), which generally cannot. Include a rigorously trained identity-kernel baseline and measure runtime, map width, and predictive performance.
+A subsequent study evaluated RN, a parameter-matched MLP, XGBoost and
+CatBoost across 15 tabular regression datasets and three combined
+split/initialization seeds. All 180 model-dataset-seed runs are present
+in the supplied per-seed results. RN exceeded MLP mean R² on eight
+tasks and the higher of both tree-ensemble means on two tasks
+(King County and Graduate Admissions). XGBoost and CatBoost maintained
+superior average cross-dataset ranks.
 
-## Historical hypotheses revised or rejected
-
-- Universal advantage inferred from Diamonds: rejected.
-- Universal stability inferred from fixed-split seeds: narrowed.
-- Exploding *weights* concluded from a large Ames prediction: not established.
-- Bound on Q/K scores assumed to bound predictions: mathematically false.
-- Gamma value assumed to determine attention importance: unsupported.
-- Feature-wise gate assumed to automatically increase expressivity: generally false for unconstrained query rows.
-- Concrete early performance interpreted as expressivity limit: premature after longer-budget gain.
-- Gate ×0.75 selected using test-set sweep: prohibited for confirmatory evaluation.
-- O(Fd) necessarily lost with all nonlinear kernels: false in general.
+Detailed results, fixed protocols and limitations are documented in
+[benchmark15_results.md](benchmark15_results.md).

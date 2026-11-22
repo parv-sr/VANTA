@@ -60,3 +60,28 @@ The smooth norm is already a nonlinear transformation of input vectors; the **sc
 Mathematical changes (normalization, scaling, nonlinearity, feature-value definition, gate shape) require a new model version and distinct checkpoint metadata. Changes in optimizer, dataset, split or training budget are **experiment configurations**, not silent architecture revisions.
 
 See [mathematical notes](mathematical_notes.md) for complexity and kernel theory and [experiments](experiment_registry.md) for observed performance.
+
+
+## VANTA-RNX — implemented separable feature-map variant
+
+The experimental RNX model is implemented in
+[VANTA_RNX/model.py](../VANTA_RNX/model.py). It preserves the RN
+normalization and introduces independently configurable query/key
+vector maps and numeric scalar value maps:
+
+$$
+h = \Phi(\tilde Q)\left(\Psi(\tilde K)^\top u\right)/\sqrt F,
+\qquad
+\hat y=w^\top(v+\gamma h)+b.
+$$
+
+The direct residual remains $v$; only the numeric values entering
+attention change to $u=\psi_V(v)$. The implemented map configurations
+are identity, componentwise tanh, and identity-initialized learned
+cubic mappings for Q/K; identity, asinh, identity-initialized learned
+asinh and two-hidden-unit GELU for attention values. Q/K mappings
+are rescaled to preserve original RN token norm. Aggregation uses
+the same associative O(Fd) computation.
+
+The completed Ames RNX experiment and its uncertainty are reported
+in [experiment_registry.md](experiment_registry.md).

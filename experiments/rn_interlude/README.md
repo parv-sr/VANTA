@@ -32,3 +32,11 @@ The post-hoc residual gate sweep is **not** an independently trained architectur
 ## Generalization benchmark across 15 Kaggle tasks
 
 The new modular benchmark, its dataset registry, CLI instructions and inference limitations are documented in [BENCHMARK15.md](BENCHMARK15.md). It defaults to VANTA-RN, supports 3–5 seeds, and optionally includes an approximately parameter-matched MLP, XGBoost and CatBoost. The same runner can load R, RNX and compatible future variants; use `--list-datasets` and `--inspect` before training on CAI.
+
+
+## Wine audit and RN latent-width study
+
+The feature-space audit and validation-selected width sweep are documented
+in [WINE_WIDTH_STUDY.md](WINE_WIDTH_STUDY.md). These tools preserve
+the VANTA-RN v0.1 architecture. No new results have been measured
+for these tools at the time of this documentation update.

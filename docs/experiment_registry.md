@@ -108,3 +108,35 @@ Inference-only **post-hoc** residual sweep (co-trained checkpoint, not retrained
 | California gate ×1.25 | 0.5735 ± 0.0676 | 75,122.169 ± 6,322.679 |
 
 Ames gate ×0.75 slightly improved mean *explored test* RMSE, but this is **not a valid reason to change the gate**. Validation evidence and future independent evaluation are required. California exhibits much greater dependency on the co-trained interaction branch.
+
+
+## Subsequent completed studies
+
+The Ames numeric input-transformation experiment is recorded in
+[ex05_preprocessing_freeze.md](ex05_preprocessing_freeze.md).
+The validation-selected asinh transformation reduced mean confirmation
+RMSE from $27,411.838 to $24,550.434, with two favorable paired
+splits and one unfavorable paired split.
+
+The Ames EX05-A RNX feature-map experiment compared the original RN
+against Q/K tanh, two-unit GELU values and both combined on three
+separately evaluated confirmation seeds (403–405):
+
+| Variant | R² mean ± SD | RMSE mean ± SD | MAE mean ± SD |
+|---|---:|---:|---:|
+| RN | 0.820277 ± 0.194608 | 30,393.431 ± 16,987.206 | 14,697.023 ± 1,620.254 |
+| Q/K tanh | 0.821290 ± 0.192824 | 30,332.108 ± 16,875.218 | 14,688.000 ± 1,595.812 |
+| GELU2 values | 0.834308 ± 0.167640 | 29,595.707 ± 15,189.215 | 14,648.543 ± 1,384.897 |
+| Combined | 0.834786 ± 0.166740 | 29,566.968 ± 15,127.717 | 14,646.432 ± 1,366.021 |
+
+Mean RMSE differences were small relative to across-split
+variability. These results do not show a general performance advantage
+beyond the examined Ames partitions.
+
+The completed 15-dataset, 180-run baseline benchmark is documented
+in [benchmark15_results.md](benchmark15_results.md). It evaluates
+RN, a parameter-matched MLP, XGBoost and CatBoost over seeds 42–44.
+The benchmark found an XGBoost–RN R² gap of approximately 0.166
+on white wine versus approximately 0.014 on red wine. The exact
+dataset-level and per-seed comparisons are retained in the archived
+benchmark results. Reused datasets and splits are exploratory.
