@@ -36,7 +36,7 @@ from datasets import preprocess
 from benchmark_datasets import TASKS, load_task, profile_train
 import run_exp as ex03
 
-NEURAL = ("rn", "r", "rnx")
+NEURAL = ("rn", "r", "g", "rnx")
 BASELINES = ("mlp", "xgboost", "catboost")
 
 
@@ -63,6 +63,10 @@ def make_model(name, data, args):
     elif name == "r":
         cls = load_file_class(ROOT/"VANTA_R"/"model.py",
             "ResidualFeatureAttentionRegressor", "_benchmark_r")
+    elif name == "g":
+        cls = load_file_class(ROOT/"VANTA_G"/"model.py",
+            "GatedFeatureAttentionRegressor", "_benchmark_g")
+        keyword.pop("learnable_gamma")
     elif name == "rnx":
         cls = load_file_class(ROOT/"VANTA_RNX"/"model.py",
             "NonlinearFeatureAttentionRegressor", "_benchmark_rnx")
@@ -92,7 +96,12 @@ def metrics(y, prediction, train_std):
     mae = float(np.mean(np.abs(error)))
     denom = float(np.sum((y-y.mean())**2))
     r2 = 1-float(np.sum(error**2))/denom if denom > 0 else float("nan")
-    return dict(RMSE=rmse, MAE=mae, R2=r2, NRMSE=rmse/max(float(train_std),1e-12))
+    total_sse = float(np.sum(error**2))
+    sorted_sse = np.sort(error**2)
+    return dict(RMSE=rmse, MAE=mae, R2=r2,
+        NRMSE=rmse/max(float(train_std),1e-12),
+        worst1_sse_share=float(sorted_sse[-1]/total_sse) if total_sse>0 else 0.,
+        worst5_sse_share=float(sorted_sse[-5:].sum()/total_sse) if total_sse>0 else 0.)
 
 
 @torch.inference_mode()
@@ -262,7 +271,7 @@ def summary_tables(all_rows,output,reference_model):
             missing_fraction_train=float(g["missing_fraction_train"].mean()),
             extreme_numeric_fraction_train=float(g["extreme_numeric_fraction_train"].mean()),
             target_skew_train=float(g["target_skew_train"].mean()))
-        for m in ["R2","RMSE","MAE","NRMSE"]:
+        for m in ["R2","RMSE","MAE","NRMSE","worst1_sse_share","worst5_sse_share"]:
             vals=g[f"test_{m}"].to_numpy(float)
             row[f"{m}_mean"]=float(np.mean(vals))
             row[f"{m}_sd"]=float(np.std(vals,ddof=1)) if len(vals)>1 else float("nan")
@@ -321,7 +330,7 @@ def main():
         help="Task names from --list-datasets or 'all'")
     p.add_argument("--list-datasets",action="store_true")
     p.add_argument("--inspect",action="store_true",help="Download/load schemas but do not train")
-    p.add_argument("--models",nargs="+",default=["rn"],help="rn r rnx or --plugin-name")
+    p.add_argument("--models",nargs="+",default=["rn"],help="rn r g rnx or --plugin-name")
     p.add_argument("--baselines",nargs="*",default=[],
         help="Optional: mlp xgboost catboost; no baselines by default")
     p.add_argument("--plugin",default="",help="Future model source: /abs/path/model.py:ClassName")
@@ -368,7 +377,7 @@ def main():
     if len(set(args.models))!=len(args.models) or len(set(args.baselines))!=len(args.baselines):
         p.error("Duplicate model identifiers")
     allowed=set(NEURAL)|({args.plugin_name} if args.plugin else set())
-    if not args.models or set(args.models)-allowed:p.error("Unknown model. Choose rn/r/rnx or provide a plugin.")
+    if not args.models or set(args.models)-allowed:p.error("Unknown model. Choose rn/r/g/rnx or provide a plugin.")
     if set(args.baselines)-set(BASELINES):p.error("Unknown baseline; choose mlp/xgboost/catboost")
     if set(args.models)&set(args.baselines):p.error("Duplicate model in both lists")
     if args.mlp_match not in allowed:p.error("Unknown --mlp-match reference")
@@ -399,6 +408,7 @@ def main():
             if args.inspect:continue
             for seed in args.seeds:
                 data=preprocess(bundle,seed)
+                data["source_slug"]=bundle["source_slug"]
                 profile=profile_train(data,bundle,seed)
                 reference=make_model(args.mlp_match,data,args)
                 ref_parameters=sum(p.numel() for p in reference.parameters() if p.requires_grad)
