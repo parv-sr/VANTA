@@ -14,7 +14,7 @@ The benchmark has **15 tasks** chosen to vary numerical/categorical mix, feature
 | airbnb | dgomonov/new-york-city-airbnb-open-data | price | Heavy-tailed listings, host-grouped splits |
 | diamonds | shivam2503/diamonds | price | Large retail, numeric/categorical and geometry |
 | wine_red | uciml/red-wine-quality-cortez-et-al-2009 | quality | Small all-numeric, ordinal labels treated as regression |
-| wine_white | kashnitsky/mlcourse-ai | quality | Medium all-numeric chemistry, ordinal regression (large mirrored download) |
+| wine_white | kashnitsky/mlcourse-ai (fallback: original UCI Wine Quality release) | quality | Medium all-numeric chemistry, ordinal regression |
 | insurance | mirichoi0218/insurance | charges | Nonlinear categorical effects, small |
 | energy | elikplim/eergy-efficiency-dataset | Y1 | Small physical energy response; Y2 excluded |
 | bike_hourly | lakshmi25npathi/bike-sharing-dataset | cnt | Hourly count, seasonality; casual/registered excluded |
@@ -25,6 +25,8 @@ The benchmark has **15 tasks** chosen to vary numerical/categorical mix, feature
 | student_math | dskagglemt/student-performance-data-set | G3 | Small, many categorical; prior grades G1/G2 excluded |
 
 **Leakage controls:** Bike-sharing `casual + registered = cnt`, so both must be excluded, along with row/date IDs. Student G1/G2 are strong near-target grade proxies and intentionally excluded. Energy Y2 is a second target and excluded. King County row ID and date, graduate serial ID, and avocado Date are removed. The four original EX03 datasets retain the original dataset loader and processing rules (including host-grouped Airbnb splits). This does not eliminate all possible domain leakage: geographic neighborhoods, duplicated records, temporal dependence and repeated entities warrant additional external validations.
+
+**Wine dataset compatibility:** The Red Wine Kaggle mirror is comma-delimited although the original UCI file uses semicolons; the loader automatically detects either delimiter. If the original White Wine Kaggle mirror returns HTTP 403, the loader downloads the official UCI `winequality-white.csv` to `~/.cache/vanta/datasets/wine_white/` and records the actual file checksum and source identity. This fallback is a declared source change, not an implicit substitution. Users can alternatively supply the original CSV through `--data-root`.
 
 **Licensing:** Kaggle dataset pages may contain different sharing conditions. Before redistribution or publication, confirm each task's current license and cite the original creators. Some sources are mirrors; record versions and provenance, do not commit datasets.
 
@@ -103,3 +105,6 @@ A single fixed optimizer budget across differently sized tasks is a **controlled
 **Model support:** Built-in identifiers are `rn`, `r`, `g`, and `rnx`. The first `--models` identifier is the reference for paired differences and data-regime reports. RN remains the default. The approximately matched MLP records its actual parameter count and ratio to the reference budget.
 
 **Output discipline:** Run configurations are fingerprinted. Changing models, GPU options, hyperparameters or feature maps requires a new `--output` directory, rather than mixing incompatible results. With `--continue-on-error`, errors are written per task/seed/model to `failures.txt`; partial summary statistics must not be presented as a complete 15-task benchmark.
+
+
+**Benchmark fixes (2026-11-22):** Earlier versions crashed after fitting on `TypeError: dict() got multiple values for keyword argument 'seed'`. Result composition now validates the profile seed and records it exactly once; regression tests cover both this failure and CSV delimiter auto-detection. Old interrupted runs without `result.json` are **not** complete and must be rerun. XGBoost may warn about CUDA model/CPU prediction arrays; that warning is not the result serialization failure.
