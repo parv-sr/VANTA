@@ -15,3 +15,6 @@ See [numerical registry](../docs/experiment_registry.md), [reproducibility guide
 | RN preprocessing | rn_interlude/preprocessing_experiment.py | Train-only numeric-tail robustness |
 
 Runs create artifacts under ignored results/ paths. Preserve immutable archived copies externally and document the code SHA, data version, seeds and selection protocol. Historical test splits have been inspected and are exploratory, not untouched final benchmarks.
+
+| RN wine audit | rn_interlude/wine_audit.py | Predictor-vector duplicate overlap and training feature-space diagnostics |
+| RN latent width | rn_interlude/latent_dimension_sweep.py | Validation-selected d and independent confirmation against d=24 |

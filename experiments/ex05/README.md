@@ -1,6 +1,6 @@
 # EX05-A: Nonlinear Q/K feature maps and scalar-value maps
 
-**Status:** experimental code; benchmark results pending. VANTA-RN v0.1 is frozen at main commit dfa7ff55dc980cfc1093c1a0a6de831f53e51703.
+**Status:** implementation and Ames confirmation experiment complete. VANTA-RN v0.1 is frozen at main commit dfa7ff55dc980cfc1093c1a0a6de831f53e51703.
 
 The implementation in [VANTA_RNX/model.py](../../VANTA_RNX/model.py) extends RN using two *separate* vector-map functions on Q and K (after smooth normalization), and an independent scalar mapping on the **numeric values entering attention**. The direct residual retains its original v; categorical scalar embeddings are not changed.
 
@@ -34,10 +34,13 @@ uv run python experiments/ex05/run_feature_maps.py --dataset ames --stage confir
 
 Repeat on California as warranted. Complete artifacts in experiments/ex05/results/ are excluded from Git and must be backed up.
 
-## Subsequent, separate studies
 
-EX05-B: stack 2–3 shallow identity-kernel VANTA blocks (first static Q/K routing, then dynamic) with carefully initialized per-feature gates; record state norms and gradients. Cost O(LFd). Do **not** introduce deep stacking into EX05-A.
+## Completed Ames confirmation
 
-EX05-C: combine only independently successful mappings and depth; compare at equal training budgets, report accuracy/parameters/latency and standard deviations.
-
-EX05-D: compare alternative efficient separable nonlinear kernel families; explicit scalar g(A) is not proposed as a deployed operator since it generally loses the existing factorization. Nonlinear maps can be evaluated without any F² matrix.
+Validation selected Q/K tanh and GELU2 values. On three confirmation
+seeds, mean test RMSE was 30,393.431 (RN reference), 30,332.108
+(Q/K tanh), 29,595.707 (GELU2) and 29,566.968 (combined).
+The three-seed RMSE standard deviations ranged from about 15,128
+to 16,987, substantially exceeding the mean differences.
+See [the experiment registry](../../docs/experiment_registry.md) for
+complete R² and MAE statistics.

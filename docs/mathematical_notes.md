@@ -1,4 +1,4 @@
-# Mathematical notes and open theory
+# Mathematical properties and complexity
 
 ## Associativity and cost
 
@@ -44,9 +44,9 @@ $$
 
 Large norms progressively suppress radial sensitivity. Gamma/readout compensation is an *unproven* optimization hypothesis, not a diagnosis of exploding weights.
 
-## Complexity of nonlinear kernels — key distinction for EX05
+## Complexity of nonlinear separable kernels
 
-**No, true nonlinearity need not force quadratic dependence on $F$.** The important property is an exact or approximate separable feature map
+Nonlinearity does not, by itself, imply quadratic dependence on $F$. The important property is an exact or approximate separable feature map
 
 $$
 K(q,k)=\phi(q)^\top\psi(k), \qquad \phi,\psi\in\mathbb R^m.
@@ -66,7 +66,7 @@ so aggregation costs $O(Fm)$ plus computing $\phi$ and $\psi$.
 3. **Approximate feature maps:** random or trained finite maps may approximate richer kernels in $O(Fm)$ with an approximation-accuracy tradeoff. Any efficiency claim must report $m$, errors, map-construction cost and hardware.
 4. **Direct arbitrary elementwise $g$:** applying $g$ to every entry of an explicit $F\times F$ matrix generally forfeits simple associative $O(Fd)$ evaluation.
 
-Crucially, distinguish **(A) a scalar $g(q^\top k)$** from **(B) a nonlinear separable $K(q,k)$**. Both can be scientifically interesting, but they are different hypotheses. With existing RN L2 normalization, additional tanh maps introduce another saturation mechanism, so compare against identically trained identity-kernel RN.
+Scalar dot-product nonlinearities and separable nonlinear vector maps define different function families. Exact finite-dimensional factorizations determine whether associative aggregation remains available. With existing RN L2 normalization, additional tanh maps introduce another saturation mechanism, so compare against identically trained identity-kernel RN.
 
 ## Pairwise versus three-way features
 
